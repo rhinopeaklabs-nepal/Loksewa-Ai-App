@@ -1,0 +1,12 @@
+﻿<resources>
+    <color name="navy">#1A3A5C</color>
+    <color name="saffron">#E88A2A</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="background">#F5F7FA</color>
+    <color name="text_primary">#1E1E2E</color>
+    <color name="text_secondary">#6B7280</color>
+    <color name="verified_green">#16A34A</color>
+    <color name="ai_amber">#D97706</color>
+    <color name="ic_launcher_background">#070C18</color>
+</resources>
+

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Result - Loksewa AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #f8f9fa;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(233, 236, 239, 1);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "primary-fixed": "#d5e3ff",
+                      "surface-container-low": "#f3f4f5",
+                      "on-surface-variant": "#43474f",
+                      "on-tertiary-container": "#fe9135",
+                      "on-secondary-fixed-variant": "#005235",
+                      "error": "#ba1a1a",
+                      "tertiary-fixed": "#ffdcc5",
+                      "outline": "#737780",
+                      "secondary-fixed": "#8df7c1",
+                      "on-primary-container": "#8caee7",
+                      "inverse-surface": "#2e3132",
+                      "surface-tint": "#3c5f93",
+                      "on-tertiary-fixed-variant": "#713700",
+                      "surface-container-high": "#e7e8e9",
+                      "on-surface": "#191c1d",
+                      "surface-bright": "#f8f9fa",
+                      "on-secondary-container": "#00714b",
+                      "on-background": "#191c1d",
+                      "on-primary": "#ffffff",
+                      "on-primary-fixed-variant": "#224779",
+                      "inverse-on-surface": "#f0f1f2",
+                      "on-secondary": "#ffffff",
+                      "secondary-container": "#8af5be",
+                      "surface-container-lowest": "#ffffff",
+                      "primary": "#002b57",
+                      "surface-container-highest": "#e1e3e4",
+                      "tertiary-container": "#683200",
+                      "primary-fixed-dim": "#a8c8ff",
+                      "surface-dim": "#d9dadb",
+                      "outline-variant": "#c3c6d0",
+                      "surface": "#f8f9fa",
+                      "on-secondary-fixed": "#002113",
+                      "tertiary-fixed-dim": "#ffb783",
+                      "primary-container": "#1a4173",
+                      "surface-container": "#edeeef",
+                      "on-primary-fixed": "#001b3c",
+                      "background": "#f8f9fa",
+                      "on-tertiary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "secondary": "#006c47",
+                      "on-error-container": "#93000a",
+                      "secondary-fixed-dim": "#71dba6",
+                      "surface-variant": "#e1e3e4",
+                      "inverse-primary": "#a8c8ff",
+                      "tertiary": "#472000",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed": "#301400"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "md": "16px",
+                      "gutter": "16px",
+                      "xl": "32px",
+                      "sm": "8px",
+                      "margin-tablet": "32px",
+                      "xs": "4px",
+                      "base": "4px",
+                      "lg": "24px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "display-lg": ["Plus Jakarta Sans"],
+                      "label-md": ["Inter"],
+                      "body-reading": ["Source Serif 4"],
+                      "headline-md": ["Plus Jakarta Sans"],
+                      "title-lg": ["Plus Jakarta Sans"],
+                      "body-md": ["Inter"],
+                      "headline-sm": ["Plus Jakarta Sans"],
+                      "label-caps": ["Inter"]
+              },
+              "fontSize": {
+                      "display-lg": ["30px", {"lineHeight": "38px", "fontWeight": "700"}],
+                      "display-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                      "body-reading": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "title-lg": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "headline-sm-mobile": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                      "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 h-16 bg-surface border-b border-outline-variant flex justify-between items-center px-margin-mobile">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden border border-outline-variant">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A professional close-up portrait of a young Nepalese student with a focused expression, wearing a neutral-colored casual shirt. The background is a soft, out-of-focus library setting with warm, scholarly lighting. The overall aesthetic is clean, high-key, and minimalist, echoing the corporate and reliable design system of Loksewa AI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUk7rq6hoqqleBXfBWGxeUqMmG9-_K5DWdZecBAekbS5lHmZHd2wN-f-mPEtEC62xRpJaxE8eVG2i877wHViFDtE5zL1Ruxbibwf26O5CIws8uUnKE97_k23Su_-6-pMaE1oBo6h1ci9Bxgj3CLeG7BfyJNcngvmGOiX247bD7mLsiiFbK38yEWfEwBJw_Z9lOSPqFDo2t5fOuEnvFtz9zk5V9wEGxidXHi02F-o0g6876ziFANTIpFgCVd2UkRhS389OUvghMBig"/>
+</div>
+<h1 class="font-display-lg text-display-lg-mobile font-bold text-primary">Loksewa AI</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-opacity active:opacity-80">
+<span class="material-symbols-outlined text-primary" data-icon="notifications">notifications</span>
+</button>
+</header>
+<main class="pt-24 px-margin-mobile max-w-4xl mx-auto space-y-lg">
+<!-- Scanned Question Context -->
+<section class="space-y-sm">
+<h2 class="font-label-caps text-label-caps text-outline uppercase">Captured Question</h2>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
+<p class="font-body-reading text-body-reading italic text-on-surface-variant">
+                    "संघीय संसदको गठन र यसको कार्यक्षेत्रका सम्बन्धमा नेपालको संविधानमा भएका मुख्य व्यवस्थाहरू उल्लेख गर्नुहोस् ।"
+                </p>
+</div>
+</section>
+<!-- AI Disclaimer Banner -->
+<div class="bg-[#FFF1F0] border border-error-container rounded-lg p-md flex gap-md items-start">
+<span class="material-symbols-outlined text-error mt-0.5" data-icon="warning">warning</span>
+<div>
+<p class="font-label-caps text-label-caps text-error mb-1">Unverified Source</p>
+<p class="font-label-md text-label-md text-on-surface-variant leading-relaxed">
+                    This answer was generated by an on-device AI model and may be incomplete or inaccurate. Please verify important facts with official sources.
+                </p>
+</div>
+</div>
+<!-- AI Result Section -->
+<article class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+<div class="bg-[#FFFBEB] border-b border-[#FEF3C7] px-md py-sm flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#D97706]" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="bg-[#F59E0B] text-white font-label-caps text-label-caps px-2 py-0.5 rounded flex items-center gap-1">
+                        AI-ASSISTED EXPLANATION
+                    </span>
+</div>
+<button class="text-primary font-label-caps text-label-caps flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-[16px]" data-icon="share">share</span>
+                    SHARE
+                </button>
+</div>
+<div class="p-lg space-y-lg">
+<!-- Answer Summary -->
+<div class="space-y-base">
+<h3 class="font-headline-sm text-headline-sm-mobile text-primary">Summary Response</h3>
+<div class="h-1 w-12 bg-primary-fixed rounded-full"></div>
+</div>
+<!-- Detailed Text -->
+<div class="font-body-reading text-body-reading space-y-md text-on-surface">
+<p>
+                        नेपालको संविधान (२०७२) अनुसार संघीय संसद दुई सदनात्मक हुने व्यवस्था छ, जसमा <strong>प्रतिनिधि सभा</strong> र <strong>राष्ट्रिय सभा</strong> रहन्छन् । 
+                    </p>
+<ul class="list-disc pl-gutter space-y-sm">
+<li><strong>प्रतिनिधि सभा:</strong> यसमा प्रत्यक्ष र समानुपातिक निर्वाचन प्रणाली मार्फत निर्वाचित २७५ सदस्यहरू रहन्छन् ।</li>
+<li><strong>राष्ट्रिय सभा:</strong> यो एक स्थायी सदन हो जसमा ५९ सदस्यहरू रहन्छन् । प्रत्येक प्रदेशबाट ८ जना र ३ जना राष्ट्रपतिबाट मनोनित हुन्छन् ।</li>
+</ul>
+<p>
+                        संघीय संसदको मुख्य कार्यक्षेत्रमा कानून निर्माण, बजेट पारित गर्ने, सरकारको निगरानी गर्ने र संविधान संशोधन गर्ने अधिकारहरू पर्दछन् ।
+                    </p>
+</div>
+<!-- Action Bar -->
+<div class="pt-md border-t border-outline-variant flex gap-md">
+<button class="flex-1 bg-primary text-on-primary py-sm px-md rounded-full font-label-md flex items-center justify-center gap-2 transition-transform active:scale-95">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+                        Save to Study List
+                    </button>
+<button class="flex-1 border border-outline py-sm px-md rounded-full font-label-md text-primary flex items-center justify-center gap-2 hover:bg-surface-container transition-transform active:scale-95">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit_note">edit_note</span>
+                        Add Note
+                    </button>
+</div>
+</div>
+</article>
+<!-- Verified Context Section -->
+<section class="space-y-md">
+<div class="flex items-center gap-3">
+<h3 class="font-title-lg text-title-lg text-primary">Verified Database Match</h3>
+<div class="flex-grow h-px bg-outline-variant"></div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+<div class="flex justify-between items-start mb-md">
+<span class="bg-secondary text-white font-label-caps text-label-caps px-2 py-0.5 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+                        VERIFIED REFERENCE
+                    </span>
+<span class="font-label-md text-label-md text-outline">Source: TSC Exam 2078</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm-mobile mb-sm">संसदको गठन सम्बन्धी व्यवस्था</h4>
+<p class="font-body-md text-on-surface-variant line-clamp-3 mb-md">
+                    नेपालको संविधानको भाग ८ मा संघीय व्यवस्थापिका सम्बन्धी व्यवस्था गरिएको छ । धारा ८३ बमोजिम प्रतिनिधि सभा र राष्ट्रिय सभा नामका दुई सदन सहितको एक संघीय व्यवस्थापिका हुनेछ जसलाई संघीय संसद भनिनेछ...
+                </p>
+<button class="w-full py-sm bg-surface-container text-primary font-label-md rounded-lg flex items-center justify-center gap-2 hover:bg-surface-container-high transition-colors">
+                    View Full Verified Answer
+                    <span class="material-symbols-outlined text-[18px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</section>
+<!-- Related Topics (Bento Style) -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-sm">
+<div class="col-span-2 bg-primary-fixed p-md rounded-xl space-y-xs">
+<span class="material-symbols-outlined text-primary" data-icon="account_balance">account_balance</span>
+<p class="font-label-caps text-label-caps text-primary opacity-70">Concept</p>
+<p class="font-title-lg text-primary">Bi-cameralism</p>
+</div>
+<div class="bg-surface-container-high p-md rounded-xl flex flex-col justify-between">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="gavel">gavel</span>
+<p class="font-label-md text-on-surface-variant">Constitutional Organs</p>
+</div>
+<div class="bg-surface-container-high p-md rounded-xl flex flex-col justify-between">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="quiz">quiz</span>
+<p class="font-label-md text-on-surface-variant">Practice Test</p>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-xs pb-4 h-20 bg-surface-container-lowest shadow-[0_-4px_16px_rgba(0,0,0,0.05)] rounded-t-xl border-t border-outline-variant md:hidden">
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-md text-label-md">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-label-md text-label-md">Subjects</span>
+</a>
+<!-- Active State for Scan result -->
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 scale-110 -translate-y-2 shadow-md" href="#">
+<span class="material-symbols-outlined" data-icon="document_scanner" style="font-variation-settings: 'FILL' 1;">document_scanner</span>
+<span class="font-label-md text-label-md">Scan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-label-md text-label-md">History</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<!-- Floating Action Button (Only on Mobile, contextual) -->
+<button class="fixed bottom-24 right-margin-mobile md:hidden w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center transition-transform active:scale-95">
+<span class="material-symbols-outlined text-[28px]" data-icon="add_a_photo">add_a_photo</span>
+</button>
+<script>
+        // Micro-interaction for feedback
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('opacity-80');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('opacity-80');
+            });
+        });
+
+        // Atmospheric Scroll Effect
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 10) {
+                header.classList.add('shadow-sm');
+                header.style.backgroundColor = 'rgba(248, 249, 250, 0.95)';
+                header.style.backdropFilter = 'blur(10px)';
+            } else {
+                header.classList.remove('shadow-sm');
+                header.style.backgroundColor = '#f8f9fa';
+                header.style.backdropFilter = 'none';
+            }
+        });
+    </script>
+</body></html>

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ne"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Loksewa AI - Result</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans:wght@400;500;700&amp;family=Source+Serif+4:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "error-container": "#93000a",
+                "on-secondary-container": "#dab36a",
+                "inverse-surface": "#e5e2e1",
+                "primary": "#bdc2ff",
+                "primary-fixed-dim": "#bdc2ff",
+                "surface-dim": "#131313",
+                "surface-container": "#201f1f",
+                "on-background": "#e5e2e1",
+                "secondary-fixed-dim": "#e9c176",
+                "on-primary-fixed": "#000767",
+                "on-secondary-fixed-variant": "#5d4201",
+                "surface-container-highest": "#353534",
+                "surface-container-high": "#2a2a2a",
+                "on-error": "#690005",
+                "error": "#ffb4ab",
+                "secondary": "#e9c176",
+                "background": "#131313",
+                "on-error-container": "#ffdad6",
+                "primary-fixed": "#e0e0ff",
+                "inverse-primary": "#4c56af",
+                "tertiary-fixed": "#97f3e2",
+                "surface-container-low": "#1c1b1b",
+                "surface-tint": "#bdc2ff",
+                "outline-variant": "#454652",
+                "inverse-on-surface": "#313030",
+                "surface": "#131313",
+                "on-tertiary-fixed-variant": "#005047",
+                "on-primary": "#1b247f",
+                "on-tertiary": "#003730",
+                "on-tertiary-container": "#49a797",
+                "on-primary-fixed-variant": "#343d96",
+                "on-primary-container": "#8690ee",
+                "secondary-container": "#604403",
+                "surface-variant": "#353534",
+                "on-surface-variant": "#c6c5d4",
+                "outline": "#908f9d",
+                "tertiary-container": "#003730",
+                "on-tertiary-fixed": "#00201b",
+                "on-secondary-fixed": "#261900",
+                "on-secondary": "#412d00",
+                "surface-container-lowest": "#0e0e0e",
+                "on-surface": "#e5e2e1",
+                "primary-container": "#1a237e",
+                "surface-bright": "#393939",
+                "secondary-fixed": "#ffdea5",
+                "tertiary": "#7ad7c6",
+                "tertiary-fixed-dim": "#7ad7c6"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+            },
+            "spacing": {
+                "unit": "8px",
+                "gutter": "24px",
+                "margin-mobile": "16px",
+                "container-max": "1280px",
+                "margin-desktop": "64px"
+            },
+            "fontFamily": {
+                "body-lg": ["Inter"],
+                "label-sm": ["Noto Sans"],
+                "headline-md-mobile": ["Source Serif 4"],
+                "display-lg": ["Source Serif 4"],
+                "headline-md": ["Source Serif 4"],
+                "body-md": ["Inter"],
+                "nepali-body": ["Noto Sans"]
+            },
+            "fontSize": {
+                "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "label-sm": ["13px", {"lineHeight": "1", "letterSpacing": "0.04em", "fontWeight": "500"}],
+                "headline-md-mobile": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                "display-lg": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "headline-md": ["32px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "nepali-body": ["18px", {"lineHeight": "1.8", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .logic-line {
+            position: relative;
+        }
+        .logic-line::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #bdc2ff;
+            opacity: 0.5;
+        }
+        .glass-card {
+            background: rgba(30, 30, 30, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+            scroll-behavior: smooth;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-body-md">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface-container-low dark:bg-surface-container-low flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop h-16">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">arrow_back</span>
+<h1 class="font-headline-md-mobile text-headline-md-mobile font-bold text-primary dark:text-primary-fixed-dim">Loksewa AI</h1>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed-dim">notifications</span>
+<div class="w-8 h-8 rounded-full bg-surface-variant border border-outline-variant overflow-hidden">
+<img alt="Profile" data-alt="A professional close-up portrait of a scholar in a high-tech dark mode digital environment. The lighting is moody and focused, with subtle purple and blue backlighting reflecting off modern architectural elements. The person has a thoughtful expression, representing intelligence and precision in a corporate academic setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJRkdo9e-KAGkpLDo9Cz9eoR93SRZ7zNMLuqKKvYXe8F62boY2iUsD-qZFvnBb4nTaqniVOLH6sQm9GNMesGxspYv0trrhllKY5PrhZBL3d5tIwf-4vBKb_DA8D9LS7vGed-yvQs667W0bhKAGiWw7F8HznfN1sbuTf43cb-JWhq1Hx5HUb0Ik7owrtsYx0cOdviKyzvXEP7hVJUYY8Ktje-b72tklBLoHh-iTOJKEMR72DScejGCZsb4XFgIwfX_yF5ln1W5Czq8"/>
+</div>
+</div>
+</header>
+<main class="mt-16 mb-24 max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Left Column: Content -->
+<div class="md:col-span-8 space-y-8">
+<!-- Captured Question Section -->
+<section class="glass-card p-6 rounded-xl border-l-4 border-primary">
+<h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-3">Captured Question</h2>
+<p class="font-nepali-body text-nepali-body text-on-surface leading-relaxed">
+                        नेपालको संविधानको धारा १६ मा कुन मौलिक हकको व्यवस्था गरिएको छ? व्याख्या गर्नुहोस्।
+                    </p>
+</section>
+<!-- AI Warning Banner -->
+<section class="bg-error-container/20 border border-error/30 p-4 rounded-lg flex gap-4 items-start">
+<span class="material-symbols-outlined text-error mt-1">warning</span>
+<div>
+<h3 class="font-label-sm text-label-sm font-bold text-error uppercase">Unverified Source</h3>
+<p class="text-on-surface-variant text-sm mt-1">
+                            This response was generated using AI. While we strive for accuracy, AI models may hallucinate or provide outdated legal information. Please verify with official documents.
+                        </p>
+</div>
+</section>
+<!-- AI-Assisted Summary Response -->
+<section class="glass-card p-8 rounded-xl relative overflow-hidden">
+<!-- Badge -->
+<div class="flex items-center gap-2 bg-secondary-container text-on-secondary-container px-3 py-1.5 rounded-full w-fit mb-6">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-label-sm text-label-sm">AI-Assisted Explanation</span>
+</div>
+<div class="logic-line pl-6 space-y-6">
+<div class="space-y-4">
+<p class="font-nepali-body text-nepali-body">
+                                नेपालको संविधानको धारा १६ ले <strong>सम्मानपूर्वक बाँच्न पाउने हक</strong>को व्यवस्था गरेको छ। यस हक अन्तर्गत निम्न मुख्य प्रावधानहरू रहेका छन्:
+                            </p>
+<ul class="list-none space-y-4 font-nepali-body text-nepali-body">
+<li class="flex items-start gap-3">
+<span class="text-primary mt-1">•</span>
+<span>प्रत्येक व्यक्तिलाई <strong>सम्मानपूर्वक बाँच्न पाउने हक</strong> हुनेछ।</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="text-primary mt-1">•</span>
+<span>कसैलाई पनि <strong>मृत्युदण्डको सजाय</strong> दिने गरी कानुन बनाइने छैन।</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="text-primary mt-1">•</span>
+<span>यो हक मानव अधिकारको <strong>आधारभूत स्तम्भ</strong> हो जसले व्यक्तिको मर्यादित जीवन सुनिश्चित गर्दछ।</span>
+</li>
+</ul>
+</div>
+<div class="pt-4 border-t border-outline-variant/30">
+<p class="text-on-surface-variant italic font-body-md">
+                                "Fundamental rights are the bedrock of any democratic society, and Article 16 serves as the primary safeguard for human dignity in Nepal."
+                            </p>
+</div>
+</div>
+</section>
+<!-- Verified Database Match (Secondary Trust Layer) -->
+<section class="glass-card p-6 rounded-xl border border-tertiary/20">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">verified</span>
+<h3 class="font-label-sm text-label-sm text-tertiary uppercase font-bold">Verified Database Match</h3>
+</div>
+<span class="text-[12px] bg-tertiary/10 text-tertiary px-2 py-0.5 rounded">98% Match Confidence</span>
+</div>
+<div class="p-4 bg-surface-container-high rounded border border-outline-variant/20">
+<h4 class="font-body-lg text-primary mb-2">नेपालको संविधान (२०७२)</h4>
+<p class="font-nepali-body text-sm text-on-surface-variant line-clamp-2">
+                            भाग ३: मौलिक हक र कर्तव्य - धारा १६: सम्मानपूर्वक बाँच्न पाउने हक: (१) प्रत्येक व्यक्तिलाई सम्मानपूर्वक बाँच्न पाउने हक हुनेछ। (२) कसैलाई पनि मृत्युदण्डको सजाय दिने गरी कानुन बनाइने छैन।
+                        </p>
+<button class="mt-4 text-primary font-label-sm flex items-center gap-1 hover:underline">
+                            View Official PDF <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+</button>
+</div>
+</section>
+</div>
+<!-- Right Column: Quick Actions & Context -->
+<div class="md:col-span-4 space-y-6">
+<div class="glass-card p-6 rounded-xl sticky top-24">
+<h3 class="font-label-sm text-label-sm uppercase text-on-surface-variant mb-6">Quick Actions</h3>
+<div class="space-y-3">
+<button class="w-full flex items-center justify-between p-4 bg-primary text-on-primary-fixed rounded-xl font-bold transition-transform active:scale-95">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined">bookmark_add</span>
+                                Save to Study List
+                            </span>
+</button>
+<button class="w-full flex items-center justify-between p-4 border border-outline-variant hover:bg-surface-variant/20 rounded-xl font-medium transition-colors">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined">edit_note</span>
+                                Add Note
+                            </span>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-4 border border-outline-variant hover:bg-surface-variant/20 rounded-xl font-medium transition-colors">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined">share</span>
+                                Share with Peer
+                            </span>
+</button>
+</div>
+<div class="mt-8 pt-8 border-t border-outline-variant/30">
+<h4 class="font-label-sm text-label-sm uppercase text-on-surface-variant mb-4">Topic Context</h4>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 rounded bg-surface-container-highest text-on-surface-variant text-xs">Constitutional Law</span>
+<span class="px-3 py-1 rounded bg-surface-container-highest text-on-surface-variant text-xs">Fundamental Rights</span>
+<span class="px-3 py-1 rounded bg-surface-container-highest text-on-surface-variant text-xs">Article 16-46</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Scan Button -->
+<div class="fixed bottom-24 right-6 z-50 md:right-12">
+<button class="w-16 h-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-90 group">
+<span class="material-symbols-outlined text-[32px] group-hover:rotate-12 transition-transform">photo_camera</span>
+</button>
+<div class="absolute -top-10 right-0 bg-surface-container px-3 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            Scan Next Question
+        </div>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface-container-high dark:bg-surface-container-high flex justify-around items-center w-full h-20 pb-safe">
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1 transition-transform duration-150 active:scale-90 cursor-pointer">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1 transition-transform duration-150 active:scale-90 cursor-pointer">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-label-sm text-label-sm">Subjects</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary-container text-on-primary-container dark:text-on-primary-container rounded-full px-4 py-1 transition-transform duration-150 active:scale-90 cursor-pointer">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">photo_camera</span>
+<span class="font-label-sm text-label-sm">Scan</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1 transition-transform duration-150 active:scale-90 cursor-pointer">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-sm text-label-sm">History</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1 transition-transform duration-150 active:scale-90 cursor-pointer">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-sm text-label-sm">Settings</span>
+</div>
+</nav>
+</body></html>

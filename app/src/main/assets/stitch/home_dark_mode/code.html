@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Noto+Sans:wght@400;500;700&amp;family=Source+Serif+4:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .logic-line {
+            position: relative;
+        }
+        .logic-line::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #bdc2ff;
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-container": "#93000a",
+                        "on-secondary-container": "#dab36a",
+                        "inverse-surface": "#e5e2e1",
+                        "primary": "#bdc2ff",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "surface-dim": "#131313",
+                        "surface-container": "#201f1f",
+                        "on-background": "#e5e2e1",
+                        "secondary-fixed-dim": "#e9c176",
+                        "on-primary-fixed": "#000767",
+                        "on-secondary-fixed-variant": "#5d4201",
+                        "surface-container-highest": "#353534",
+                        "surface-container-high": "#2a2a2a",
+                        "on-error": "#690005",
+                        "error": "#ffb4ab",
+                        "secondary": "#e9c176",
+                        "background": "#131313",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed": "#e0e0ff",
+                        "inverse-primary": "#4c56af",
+                        "tertiary-fixed": "#97f3e2",
+                        "surface-container-low": "#1c1b1b",
+                        "surface-tint": "#bdc2ff",
+                        "outline-variant": "#454652",
+                        "inverse-on-surface": "#313030",
+                        "surface": "#131313",
+                        "on-tertiary-fixed-variant": "#005047",
+                        "on-primary": "#1b247f",
+                        "on-tertiary": "#003730",
+                        "on-tertiary-container": "#49a797",
+                        "on-primary-fixed-variant": "#343d96",
+                        "on-primary-container": "#8690ee",
+                        "secondary-container": "#604403",
+                        "surface-variant": "#353534",
+                        "on-surface-variant": "#c6c5d4",
+                        "outline": "#908f9d",
+                        "tertiary-container": "#003730",
+                        "on-tertiary-fixed": "#00201b",
+                        "on-secondary-fixed": "#261900",
+                        "on-secondary": "#412d00",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-surface": "#e5e2e1",
+                        "primary-container": "#1a237e",
+                        "surface-bright": "#393939",
+                        "secondary-fixed": "#ffdea5",
+                        "tertiary": "#7ad7c6",
+                        "tertiary-fixed-dim": "#7ad7c6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "8px",
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "container-max": "1280px",
+                        "margin-desktop": "64px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Noto Sans"],
+                        "headline-md-mobile": ["Source Serif 4"],
+                        "display-lg": ["Source Serif 4"],
+                        "headline-md": ["Source Serif 4"],
+                        "body-md": ["Inter"],
+                        "nepali-body": ["Noto Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "label-sm": ["13px", {"lineHeight": "1", "letterSpacing": "0.04em", "fontWeight": "500"}],
+                        "headline-md-mobile": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "display-lg": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["32px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "nepali-body": ["18px", {"lineHeight": "1.8", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-24">
+<!-- Top AppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface-container-low h-16 flex justify-between items-center px-margin-mobile md:px-margin-desktop">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border border-outline-variant bg-surface-container-highest">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A professional studio portrait of a young South Asian scholar with a focused expression, wearing modern glasses. The background is a soft-focus library with dark wood tones and warm amber lighting. The overall mood is academic, authoritative, and sophisticated, matching a high-end corporate dark-mode UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPyqV5CaxhNzx3z-bvYy3MHq6lY_McBHH9BCMa0kF1WhECmISeIqTztXkHnyrUC6SKQ9X2msP9agl1XSJva2V78xa27nL258GkUQwhzZDcBjxhYx5zGNA7tmpkZdk-9bb9T-5IO9HD5c3jFCvN7jjTPIRg2v3cqPVGa_8qmj1sHDv9geaKT5cCHuIhly2Y7z9E4kP6MY70DqG4o7JgpJ62Vcz7Cq8CAKe_ZWs1Z0o3yVbVyRtwmmcASpmA2mtb1bAhB_1z3vmmwxc"/>
+</div>
+<span class="font-headline-md-mobile text-headline-md-mobile font-bold text-primary">Loksewa AI</span>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full transition-colors duration-200 hover:bg-surface-variant/20 text-primary">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</header>
+<main class="pt-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto space-y-8">
+<!-- Greeting Section -->
+<section class="flex flex-col gap-1">
+<h1 class="font-display-lg text-display-lg leading-tight">नमस्ते, Candidate</h1>
+<p class="text-on-surface-variant font-body-lg">Ready to master your curriculum today?</p>
+</section>
+<!-- Question of the Day -->
+<section class="relative overflow-hidden bg-primary-container text-on-primary-container p-gutter rounded-xl shadow-lg border border-outline-variant group">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-[120px]" data-icon="menu_book">menu_book</span>
+</div>
+<div class="relative z-10 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<span class="flex items-center gap-2 font-label-sm text-label-sm bg-surface-container-lowest/30 px-3 py-1 rounded-full uppercase tracking-widest">
+<span class="material-symbols-outlined text-sm" data-icon="star">star</span>
+                        Question of the Day
+                    </span>
+<span class="font-label-sm text-label-sm text-secondary">+150 XP</span>
+</div>
+<h2 class="font-nepali-body text-nepali-body font-bold text-white">नेपालको संविधानको कुन धारामा नागरिकका कर्तव्यहरू सम्बन्धी व्यवस्था गरिएको छ?</h2>
+<div class="flex flex-wrap gap-3 mt-2">
+<button class="bg-surface-container-lowest/50 hover:bg-surface-container-lowest text-white px-6 py-3 rounded-lg border border-outline-variant font-body-md transition-all active:scale-95">धारा ४७</button>
+<button class="bg-surface-container-lowest/50 hover:bg-surface-container-lowest text-white px-6 py-3 rounded-lg border border-outline-variant font-body-md transition-all active:scale-95">धारा ४८</button>
+<button class="bg-surface-container-lowest/50 hover:bg-surface-container-lowest text-white px-6 py-3 rounded-lg border border-outline-variant font-body-md transition-all active:scale-95">धारा ४९</button>
+<button class="bg-surface-container-lowest/50 hover:bg-surface-container-lowest text-white px-6 py-3 rounded-lg border border-outline-variant font-body-md transition-all active:scale-95">धारा ५०</button>
+</div>
+<div class="flex items-center gap-4 mt-2">
+<div class="flex -space-x-2">
+<div class="w-6 h-6 rounded-full border border-background bg-secondary text-[10px] flex items-center justify-center font-bold text-on-secondary">S</div>
+<div class="w-6 h-6 rounded-full border border-background bg-tertiary text-[10px] flex items-center justify-center font-bold text-on-tertiary">A</div>
+<div class="w-6 h-6 rounded-full border border-background bg-primary text-[10px] flex items-center justify-center font-bold text-on-primary">M</div>
+</div>
+<p class="text-label-sm font-label-sm opacity-80">1,248 students answered this correctly today</p>
+</div>
+</div>
+</section>
+<!-- Core Subjects Grid (Bento Style) -->
+<section class="space-y-4">
+<div class="flex justify-between items-end px-1">
+<h3 class="font-headline-md text-headline-md-mobile md:text-headline-md">Core Subjects</h3>
+<a class="text-primary font-label-sm text-label-sm uppercase hover:underline" href="#">View All</a>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<!-- Card 1: Constitution -->
+<div class="bg-surface-container-high p-6 rounded-xl border border-outline-variant flex flex-col justify-between h-48 hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+</div>
+<div>
+<h4 class="font-body-lg font-bold">Constitution</h4>
+<p class="text-label-sm text-on-surface-variant">84% Mastery</p>
+</div>
+</div>
+<!-- Card 2: Geography -->
+<div class="bg-surface-container-high p-6 rounded-xl border border-outline-variant flex flex-col justify-between h-48 hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="public">public</span>
+</div>
+<div>
+<h4 class="font-body-lg font-bold">Geography</h4>
+<p class="text-label-sm text-on-surface-variant">62% Mastery</p>
+</div>
+</div>
+<!-- Card 3: History -->
+<div class="bg-surface-container-high p-6 rounded-xl border border-outline-variant flex flex-col justify-between h-48 hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="history_edu">history_edu</span>
+</div>
+<div>
+<h4 class="font-body-lg font-bold">History</h4>
+<p class="text-label-sm text-on-surface-variant">45% Mastery</p>
+</div>
+</div>
+<!-- Card 4: Current Affairs -->
+<div class="bg-surface-container-high p-6 rounded-xl border border-outline-variant flex flex-col justify-between h-48 hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="w-12 h-12 rounded-lg bg-error/10 flex items-center justify-center text-error group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="newsmode">newsmode</span>
+</div>
+<div>
+<h4 class="font-body-lg font-bold">Current Affairs</h4>
+<p class="text-label-sm text-on-surface-variant">92% Weekly Score</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Recent Scans List -->
+<section class="space-y-4">
+<h3 class="font-headline-md text-headline-md-mobile md:text-headline-md">Recent Scans</h3>
+<div class="space-y-3">
+<!-- Scan Item 1 -->
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant flex items-center gap-4 hover:bg-surface-container transition-all cursor-pointer logic-line">
+<div class="w-16 h-16 rounded bg-surface-container-highest overflow-hidden flex-shrink-0">
+<img alt="Scan Thumbnail" class="w-full h-full object-cover grayscale opacity-60" data-alt="A high-contrast macro photograph of a printed Nepali legal document on textured cream paper. The lighting is dramatic and directional, casting shadows into the paper's grain. The focus is sharp on a few lines of Devanagari script, creating a mood of historical importance and academic rigor in a modern dark UI setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbuiKOYw0FlCxpJbccI-rKXwSC48zRY66CnDvptOPWbczq_AqtcYmiTifER63I04xsxNc3GxsHIagCdiZT_A_W21X7fyt6e_PRdHXvJpK2w3xgW2-fnu5-gO8iK3tdnQZb979NHUBruVjYQQzwpGRuyktQehyf_pAydKbLc-fKxzQcp6OY_rgKqde9fACP96voc28MnpNsD7KV6yHzi9lK0SgSO_vVQwaC2Zco2bBO6qxRxyJdJocttFfPlQpUi03TcBmw_TqsPyE"/>
+</div>
+<div class="flex-grow min-w-0">
+<div class="flex items-center gap-2 mb-1">
+<span class="flex items-center gap-1 bg-[#10b981] text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
+<span class="material-symbols-outlined text-[12px]" data-icon="check_circle">check_circle</span>
+                                Verified
+                            </span>
+<span class="text-label-sm text-on-surface-variant">2 hours ago</span>
+</div>
+<h5 class="font-body-md font-semibold truncate">Fundamental Rights Analysis</h5>
+<p class="text-label-sm text-on-surface-variant truncate">Source: Gorkhapatra National Daily</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="chevron_right">chevron_right</span>
+</div>
+<!-- Scan Item 2 -->
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant flex items-center gap-4 hover:bg-surface-container transition-all cursor-pointer logic-line">
+<div class="w-16 h-16 rounded bg-surface-container-highest overflow-hidden flex-shrink-0">
+<img alt="Scan Thumbnail" class="w-full h-full object-cover grayscale opacity-60" data-alt="A top-down view of a handwritten notebook page with intricate diagrams and Nepali script notes about geography. A vintage fountain pen rests on the edge. The lighting is warm and intellectual, suggesting a late-night study session. The image maintains a monochrome, high-contrast aesthetic suitable for a dark-mode editorial layout." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhJtiiyQKWsOGgy2UFbzXA6FtcC4xbqrcb7Nao-bm41F2WVpd4ygnUWAtbZ6CIv_J-I3FN-95coWH9x5e34TxuwPBFl9alEs-xPy-bcuMLFZhjIx2kRH8i3gxolTf1hg2402E4PVLTjlvLpJwTcNLdlQZeuaqCyOe7djFqH0tFamon4iwPUIIuikBDHg0M0Jgd7YBBAk3jfq24Eh8SY-fHerhstt3wo1V3xjSYLb86tIwf0OjXZ0m_Y1XT8wv3sHJMH6MJjxtwkxE"/>
+</div>
+<div class="flex-grow min-w-0">
+<div class="flex items-center gap-2 mb-1">
+<span class="flex items-center gap-1 bg-[#0ea5e9] text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
+<span class="material-symbols-outlined text-[12px]" data-icon="bolt">bolt</span>
+                                AI-Assisted
+                            </span>
+<span class="text-label-sm text-on-surface-variant">Yesterday</span>
+</div>
+<h5 class="font-body-md font-semibold truncate">Geography Map Landmarks</h5>
+<p class="text-label-sm text-on-surface-variant truncate">Source: Personal Study Notes</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface-container-high h-20 pb-safe flex justify-around items-center">
+<!-- Home -->
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 transition-transform duration-150 active:scale-90">
+<span class="material-symbols-outlined" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</button>
+<!-- Subjects -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-transform duration-150 active:scale-90">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-label-sm text-label-sm">Subjects</span>
+</button>
+<!-- Scan (Enhanced High-Impact) -->
+<button class="relative -top-6 flex flex-col items-center justify-center w-16 h-16 bg-primary text-on-primary rounded-full shadow-2xl transition-transform duration-150 active:scale-90 border-4 border-background">
+<span class="material-symbols-outlined text-3xl" data-icon="photo_camera" style="font-variation-settings: 'FILL' 1;">photo_camera</span>
+</button>
+<!-- History -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-transform duration-150 active:scale-90">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-label-sm text-label-sm">History</span>
+</button>
+<!-- Settings -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-transform duration-150 active:scale-90">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-sm text-label-sm">Settings</span>
+</button>
+</nav>
+<script>
+        // Simple micro-interaction for scan button
+        const scanBtn = document.querySelector('button.relative.-top-6');
+        if (scanBtn) {
+            scanBtn.addEventListener('mouseenter', () => {
+                scanBtn.classList.add('scale-105');
+            });
+            scanBtn.addEventListener('mouseleave', () => {
+                scanBtn.classList.remove('scale-105');
+            });
+        }
+    </script>
+</body></html>

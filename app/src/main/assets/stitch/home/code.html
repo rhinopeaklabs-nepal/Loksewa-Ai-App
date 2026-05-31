@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Loksewa AI - Home</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;family=Source+Serif+4:wght@400;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Plus+Jakarta+Sans:wght@100..900&amp;family=Source+Serif+4:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "primary-fixed": "#d5e3ff",
+                      "surface-container-low": "#f3f4f5",
+                      "on-surface-variant": "#43474f",
+                      "on-tertiary-container": "#fe9135",
+                      "on-secondary-fixed-variant": "#005235",
+                      "error": "#ba1a1a",
+                      "tertiary-fixed": "#ffdcc5",
+                      "outline": "#737780",
+                      "secondary-fixed": "#8df7c1",
+                      "on-primary-container": "#8caee7",
+                      "inverse-surface": "#2e3132",
+                      "surface-tint": "#3c5f93",
+                      "on-tertiary-fixed-variant": "#713700",
+                      "surface-container-high": "#e7e8e9",
+                      "on-surface": "#191c1d",
+                      "surface-bright": "#f8f9fa",
+                      "on-secondary-container": "#00714b",
+                      "on-background": "#191c1d",
+                      "on-primary": "#ffffff",
+                      "on-primary-fixed-variant": "#224779",
+                      "inverse-on-surface": "#f0f1f2",
+                      "on-secondary": "#ffffff",
+                      "secondary-container": "#8af5be",
+                      "surface-container-lowest": "#ffffff",
+                      "primary": "#002b57",
+                      "surface-container": "#edeeef",
+                      "on-primary-fixed": "#001b3c",
+                      "background": "#f8f9fa",
+                      "on-tertiary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "secondary": "#006c47",
+                      "on-error-container": "#93000a",
+                      "secondary-fixed-dim": "#71dba6",
+                      "surface-variant": "#e1e3e4",
+                      "inverse-primary": "#a8c8ff",
+                      "tertiary": "#472000",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed": "#301400"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "md": "16px",
+                      "gutter": "16px",
+                      "xl": "32px",
+                      "sm": "8px",
+                      "margin-tablet": "32px",
+                      "xs": "4px",
+                      "base": "4px",
+                      "lg": "24px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "display-lg": ["Plus Jakarta Sans"],
+                      "label-md": ["Inter"],
+                      "body-reading": ["Source Serif 4"],
+                      "headline-md": ["Plus Jakarta Sans"],
+                      "title-lg": ["Plus Jakarta Sans"],
+                      "body-md": ["Inter"],
+                      "headline-sm": ["Plus Jakarta Sans"],
+                      "label-caps": ["Inter"]
+              },
+              "fontSize": {
+                      "display-lg": ["30px", {"lineHeight": "38px", "fontWeight": "700"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                      "body-reading": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "title-lg": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body {
+            -webkit-tap-highlight-color: transparent;
+            scroll-behavior: smooth;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(233, 236, 239, 1);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-32">
+<!-- Top App Bar -->
+<header class="bg-surface border-b border-outline-variant flex justify-between items-center w-full px-margin-mobile h-16 sticky top-0 z-40">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A professional close-up portrait of a young Nepalese man with a friendly, focused expression, dressed in business casual attire. The lighting is soft and natural, suggesting a bright office or study environment. The overall aesthetic is clean and modern, aligned with high-legibility corporate branding." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDjsasnbOfn2lCjYy8vgRIiEsEypX0hbo-e_YbBXzBvYzwsXkcP_FSn3D99B1ub2zCjDtNbB5S4-cPFsa6idkFqOp95EeQA_DvH-BogfWiue9tqVLHlgkEF10caaqGmjCHN9jB3dLAod8Sipb3NKK-PbFcuBnE53T31zuI_WLbLTph2_vN27VGT2qzcS6rdkwuLiIjO22Xy0wK71zT0LO47OuogpPMv36j9YKrfZE9Bn6_rVTvUuREr4A4cKMr20iSHZkZynr8pVKI"/>
+</div>
+<h1 class="font-display-lg text-[22px] leading-tight font-bold text-primary">Loksewa AI</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</header>
+<main class="px-margin-mobile mt-lg max-w-2xl mx-auto">
+<!-- Welcoming Header -->
+<section class="mb-xl">
+<h2 class="font-headline-md text-headline-md text-primary mb-xs">नमस्ते, Candidate</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Your journey to civil service continues today.</p>
+</section>
+<!-- Daily Challenge Card -->
+<section class="mb-xl">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md overflow-hidden relative group cursor-pointer active:scale-[0.98] transition-transform">
+<div class="flex justify-between items-start mb-sm">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed-variant px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Question of the Day</span>
+<span class="text-primary text-[12px] font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]" data-icon="bolt" style="font-variation-settings: 'FILL' 1;">bolt</span>
+                        50 XP
+                    </span>
+</div>
+<p class="font-body-reading text-body-reading text-on-surface mb-md">
+                    Which article of the Constitution of Nepal (2072) establishes the "Public Service Commission"?
+                </p>
+<div class="flex items-center gap-4">
+<div class="flex -space-x-2">
+<div class="w-6 h-6 rounded-full border-2 border-white bg-surface-container-high flex items-center justify-center text-[10px] font-bold">A</div>
+<div class="w-6 h-6 rounded-full border-2 border-white bg-surface-container-high flex items-center justify-center text-[10px] font-bold">S</div>
+<div class="w-6 h-6 rounded-full border-2 border-white bg-surface-container-high flex items-center justify-center text-[10px] font-bold">R</div>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">2.4k students answered</span>
+</div>
+<div class="absolute right-[-10px] bottom-[-10px] opacity-10 rotate-12 pointer-events-none">
+<span class="material-symbols-outlined text-[120px]" data-icon="history_edu">history_edu</span>
+</div>
+</div>
+</section>
+<!-- Subjects Grid -->
+<section class="mb-xl">
+<div class="flex justify-between items-center mb-md">
+<h3 class="font-title-lg text-title-lg text-on-surface">Core Subjects</h3>
+<button class="text-primary font-label-md text-label-md">View All</button>
+</div>
+<div class="bento-grid">
+<div class="bg-surface p-md rounded-xl border border-outline-variant hover:border-primary transition-all flex flex-col gap-3 group">
+<div class="w-10 h-10 rounded-lg bg-primary-fixed flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+</div>
+<div>
+<h4 class="font-title-lg text-title-lg text-primary text-[16px]">Constitution</h4>
+<p class="font-label-md text-label-md text-on-surface-variant">24 Chapters</p>
+</div>
+</div>
+<div class="bg-surface p-md rounded-xl border border-outline-variant hover:border-primary transition-all flex flex-col gap-3 group">
+<div class="w-10 h-10 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="public">public</span>
+</div>
+<div>
+<h4 class="font-title-lg text-title-lg text-primary text-[16px]">Geography</h4>
+<p class="font-label-md text-label-md text-on-surface-variant">800+ Facts</p>
+</div>
+</div>
+<div class="bg-surface p-md rounded-xl border border-outline-variant hover:border-primary transition-all flex flex-col gap-3 group">
+<div class="w-10 h-10 rounded-lg bg-tertiary-fixed flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</div>
+<div>
+<h4 class="font-title-lg text-title-lg text-primary text-[16px]">History</h4>
+<p class="font-label-md text-label-md text-on-surface-variant">12 Eras</p>
+</div>
+</div>
+<div class="bg-surface p-md rounded-xl border border-outline-variant hover:border-primary transition-all flex flex-col gap-3 group">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="newspaper">newspaper</span>
+</div>
+<div>
+<h4 class="font-title-lg text-title-lg text-primary text-[16px]">Current Affairs</h4>
+<p class="font-label-md text-label-md text-on-surface-variant">Updated Today</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Recent Scans -->
+<section class="mb-xl">
+<h3 class="font-title-lg text-title-lg text-on-surface mb-md">Recent Scans</h3>
+<div class="space-y-sm">
+<!-- Scan Item 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-sm flex items-center gap-md">
+<div class="w-14 h-14 rounded bg-surface-container-high overflow-hidden flex-shrink-0">
+<img alt="Question Scan" class="w-full h-full object-cover grayscale opacity-50" data-alt="A macro close-up of a printed examination paper showing Nepali script in black ink on aged, textured paper. The lighting is slightly dim and directional, emphasizing the texture of the paper and the sharp edges of the typography. The image evokes a sense of deep study and academic rigor." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsojcclcGbq57ekLAbetzkNZVMpi5kjGR_vRfOLzy3c8gBHoILA4JhaOsw4TwvncUH8wrZTF07pRpy27oo5iHzi6jU6c8fo0b-uP19lowD8AsZZJ7O0P02yo4iYOlveka7P_ktyUI_MciSrUDBjjMEPZXWOSDuDqf5btvjFZpjUrlFGr4bB4CpkMQodBuEplxM576sKRXm1T2MxPc7R1h9D7hsJpsSTw1gacjtyeeN_qDEhcbDT6oo8SCYf6HwQLU9z8FQiB0CoXk"/>
+</div>
+<div class="flex-grow">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-secondary text-on-secondary px-2 py-0.5 rounded font-label-caps text-[9px] uppercase flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[10px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                Verified
+                            </span>
+<span class="font-label-md text-[11px] text-outline">2h ago</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface line-clamp-1">Analysis of administrative hierarchy in Nepal...</p>
+</div>
+<button class="text-outline">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<!-- Scan Item 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-sm flex items-center gap-md">
+<div class="w-14 h-14 rounded bg-surface-container-high overflow-hidden flex-shrink-0">
+<img alt="Question Scan" class="w-full h-full object-cover grayscale opacity-50" data-alt="A blurred background of a library bookshelf with leather-bound books and modern study materials. The lighting is warm and intellectual, with a shallow depth of field focusing on the foreground textures. The mood is quiet and professional, consistent with a high-end educational tool." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8ZvGP1dNivuH_AmobUs9Qlyau7Fi3J4PSjBalPiqwrR7Mrf_tToV3EuSVOUu-QqoO5tAJQ3lFOYA_BxMZKnF_ajhf8wVdDGkR53lvHBZAAFyNqbgD6zlQ8oJgjdC-BN7tYUd4NQGddaqeU3E6jcjlw0jIHnRu1HuMVkZY1cc3rkPDuRz2Jdk9o8RGd4zP3J1vAmP24voyuLQV_Nk0y0VZk-vx4-IAZI9WtstWmMSBNxpBvacdsRxUROsOoxat889osTVOyzx4rBQ"/>
+</div>
+<div class="flex-grow">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-[#fe9135] text-white px-2 py-0.5 rounded font-label-caps text-[9px] uppercase flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[10px]" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+                                AI-Assisted
+                            </span>
+<span class="font-label-md text-[11px] text-outline">Yesterday</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface line-clamp-1">Mountainous ranges and economic impacts...</p>
+</div>
+<button class="text-outline">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Navigation Shell -->
+<nav class="bg-surface-container-lowest shadow-[0_-4px_16px_rgba(0,0,0,0.05)] fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-xs pb-safe h-20 rounded-t-xl">
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 active:scale-95 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-md text-label-md">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-container-high active:scale-95 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-label-md text-label-md">Subjects</span>
+</a>
+<!-- Center Floating Action Button (Scan) -->
+<div class="relative -mt-10">
+<button class="w-16 h-16 bg-primary text-white rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined text-[32px]" data-icon="document_scanner">document_scanner</span>
+</button>
+<span class="absolute -bottom-8 left-1/2 -translate-x-1/2 font-label-md text-label-md text-primary font-bold">Quick Scan</span>
+</div>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-container-high active:scale-95 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-label-md text-label-md">History</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-container-high active:scale-95 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<!-- Micro-interaction Script -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Handle bottom nav active states
+            const navItems = document.querySelectorAll('nav a');
+            navItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    // This is just visual for the demo
+                    navItems.forEach(i => {
+                        i.classList.remove('bg-primary-container', 'text-on-primary-container', 'rounded-full', 'px-4', 'py-1');
+                        i.classList.add('text-on-surface-variant', 'p-2');
+                        const icon = i.querySelector('.material-symbols-outlined');
+                        if(icon) icon.style.fontVariationSettings = "'FILL' 0";
+                    });
+                    item.classList.remove('text-on-surface-variant', 'p-2');
+                    item.classList.add('bg-primary-container', 'text-on-primary-container', 'rounded-full', 'px-4', 'py-1');
+                    const icon = item.querySelector('.material-symbols-outlined');
+                    if(icon) icon.style.fontVariationSettings = "'FILL' 1";
+                });
+            });
+
+            // Card click effect
+            const dailyCard = document.querySelector('.group');
+            dailyCard.addEventListener('click', () => {
+                console.log('Opening daily challenge...');
+            });
+        });
+    </script>
+</body></html>

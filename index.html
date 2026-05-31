@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loksewa AI — System Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream: #f7f5f0;
+  --card: #ffffff;
+  --border: #e9e3d6;
+  --text: #14171e;
+  --muted: #3a4256;
+  --soft: #7c7a72;
+  --primary: #2f6f5e;
+  --accent: #c97b3f;
+  --accent2: #b06367;
+  --tier-bg: #f0ece4;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--cream);
+  color: var(--text);
+  line-height: 1.55;
+  font-size: 14px;
+}
+.serif { font-family: 'DM Serif Display', serif; font-weight: 400; letter-spacing: -0.01em; }
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+.hero { position: relative; padding: 64px 24px 56px; text-align: center; overflow: hidden; }
+.hero::before { content: ""; position: absolute; top: -80px; right: -80px; width: 400px; height: 400px; background: radial-gradient(circle, rgba(47,111,94,0.06) 0%, transparent 70%); border-radius: 50%; }
+.hero::after { content: ""; position: absolute; bottom: -60px; left: -60px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(201,123,63,0.05) 0%, transparent 70%); border-radius: 50%; }
+.hero-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 20px; }
+.hero-badge span { width: 6px; height: 6px; background: var(--primary); border-radius: 50%; }
+.hero h1 { font-family: 'DM Serif Display', serif; font-size: 42px; letter-spacing: -0.02em; color: var(--text); margin-bottom: 12px; }
+.hero-sub { font-size: 16px; color: var(--soft); max-width: 560px; margin: 0 auto 28px; }
+.hero-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.tag { padding: 5px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; font-weight: 500; color: var(--muted); }
+
+section { padding: 0 24px 64px; }
+.section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft); margin-bottom: 8px; }
+h2 { font-family: 'DM Serif Display', serif; font-size: 26px; letter-spacing: -0.01em; color: var(--text); margin-bottom: 8px; }
+.desc { font-size: 14px; color: var(--soft); max-width: 600px; margin-bottom: 28px; }
+.container { max-width: 1060px; margin: 0 auto; }
+
+.arch-diagram { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 12px; overflow-x: auto; }
+.arch-table { width: 100%; min-width: 800px; border-collapse: separate; border-spacing: 0; }
+.tier-row { display: flex; align-items: stretch; min-height: 72px; border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
+.tier-label { width: 90px; min-width: 90px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); padding: 12px 8px; background: var(--tier-bg); border-right: 1px solid var(--border); }
+.tier-content { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; align-items: center; }
+.tier-content.align-center { align-items: center; }
+.comp { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: default; transition: transform 0.15s, box-shadow 0.15s; }
+.comp:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.comp-icon { width: 16px; height: 16px; flex-shrink: 0; }
+.client { background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
+.gateway { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.service { background: #ecfdf5; color: #166534; border: 1px solid #a7f3d0; }
+.ai { background: #fdf2f8; color: #9d174d; border: 1px solid #fbcfe8; }
+.data { background: #f5f3ff; color: #5b21b6; border: 1px solid #ddd6fe; }
+.infra { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+
+.flow-section { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.flow-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+.flow-card h3 { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.flow-steps { display: flex; flex-direction: column; gap: 10px; }
+.flow-step { display: flex; gap: 12px; align-items: flex-start; }
+.step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.step-num.orange { background: var(--accent); }
+.step-num.pink { background: var(--accent2); }
+.step-num.blue { background: #3b82f6; }
+.step-body { flex: 1; }
+.step-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.step-desc { font-size: 12px; color: var(--soft); }
+
+.data-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.data-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.data-card h4 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.data-card p { font-size: 12px; color: var(--soft); margin-bottom: 10px; }
+.fields { display: flex; flex-wrap: wrap; gap: 4px; }
+.field { font-size: 11px; padding: 3px 8px; background: var(--cream); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); }
+.field.pk { background: #fef9c3; border-color: #fde047; color: #854d0e; }
+.field.fk { background: #f0f9ff; border-color: #bae6fd; color: #0369a1; }
+
+.stack-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stack-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
+.stack-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
+.stack-icon svg { width: 22px; height: 22px; }
+.stack-card h4 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.stack-card p { font-size: 11px; color: var(--soft); }
+
+.scale-section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+.scale-top { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.scale-metric { text-align: center; padding: 16px; background: var(--cream); border-radius: 12px; }
+.scale-metric .num { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--primary); margin-bottom: 4px; }
+.scale-metric .label { font-size: 12px; color: var(--soft); }
+.scale-features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.scale-feature { display: flex; gap: 10px; align-items: flex-start; padding: 12px; background: var(--cream); border-radius: 10px; }
+.scale-feature .icon-wrap { width: 32px; height: 32px; border-radius: 8px; background: white; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.scale-feature .icon-wrap svg { width: 16px; height: 16px; color: var(--primary); }
+.scale-feature h5 { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.scale-feature p { font-size: 11px; color: var(--soft); }
+
+.api-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.api-group { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.api-group h4 { font-size: 12px; font-weight: 600; color: var(--soft); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.method { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.method:last-child { border-bottom: none; }
+.method-badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; min-width: 44px; text-align: center; }
+.get { background: #dcfce7; color: #15803d; }
+.post { background: #dbeafe; color: #1e40af; }
+.put { background: #fef9c3; color: #854d0e; }
+.method-path { font-size: 12px; color: var(--muted); }
+
+.domain-tree { }
+.domain-item { margin-bottom: 10px; }
+.domain-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; cursor: default; transition: border-color 0.15s; }
+.domain-header:hover { border-color: var(--primary); }
+.domain-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.domain-icon svg { width: 16px; height: 16px; }
+.domain-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+.domain-count { font-size: 11px; padding: 2px 8px; background: var(--cream); border: 1px solid var(--border); border-radius: 6px; color: var(--soft); }
+.domain-modules { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 10px 14px 10px 50px; }
+.domain-modules .module { font-size: 11px; padding: 4px 8px; background: var(--cream); border-radius: 6px; color: var(--muted); }
+
+.divider { border: none; border-top: 1px solid var(--border); margin: 0 24px 64px; max-width: 1060px; margin-left: auto; margin-right: auto; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+section { animation: fadeUp 0.5s ease-out both; }
+section:nth-child(2) { animation-delay: 0.1s; }
+section:nth-child(3) { animation-delay: 0.2s; }
+section:nth-child(4) { animation-delay: 0.3s; }
+section:nth-child(5) { animation-delay: 0.4s; }
+section:nth-child(6) { animation-delay: 0.5s; }
+section:nth-child(7) { animation-delay: 0.6s; }
+
+@media (max-width: 900px) {
+  .flow-section, .api-grid { grid-template-columns: 1fr; }
+  .data-grid, .scale-features { grid-template-columns: 1fr 1fr; }
+  .stack-grid { grid-template-columns: repeat(2, 1fr); }
+  .domain-modules { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .hero h1 { font-size: 30px; }
+  .data-grid, .domain-modules { grid-template-columns: 1fr; }
+  .domain-modules { padding-left: 14px; }
+}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-badge"><span></span>System Architecture v1.0</div>
+  <h1 class="serif">Loksewa AI Architecture</h1>
+  <p class="hero-sub">A production-grade, scalable architecture for Nepal's AI-Powered Loksewa Learning Platform. Built for millions of concurrent users.</p>
+  <div class="hero-tags">
+    <span class="tag">Clean Architecture</span>
+    <span class="tag">Domain-Driven Design</span>
+    <span class="tag">RAG Pipeline</span>
+    <span class="tag">Microservices Ready</span>
+    <span class="tag">TypeScript</span>
+    <span class="tag">PostgreSQL</span>
+    <span class="tag">Redis Caching</span>
+    <span class="tag">BullMQ</span>
+    <span class="tag">Vector DB</span>
+  </div>
+</div>
+
+<!-- SECTION: SYSTEM OVERVIEW -->
+<section>
+  <div class="container">
+    <div class="section-label">System Overview</div>
+    <h2 class="serif">High-Level Architecture</h2>
+    <p class="desc">Seven-layer architecture designed for horizontal scaling, fault tolerance, and sub-200ms response times under millions of requests.</p>
+    
+    <div class="arch-diagram">
+      <table class="arch-table">
+        <tbody>
+          <tr><td style="padding-right:12px;">
+            <div class="tier-row">
+              <div class="tier-label">Client</div>
+              <div class="tier-content align-center">
+                <div class="comp client"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>Mobile App</div>
+                <div class="comp client"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Web App</div>
+                <div class="comp client"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>PWA</div>
+              </div>
+            </div>
+          </td></tr>
+          <tr><td style="padding-right:12px;">
+            <div class="tier-row">
+              <div class="tier-label">Gateway</div>
+              <div class="tier-content align-center">
+                <div class="comp gateway"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Auth Middleware</div>
+                <div class="comp gateway"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Rate Limiter</div>
+                <div class="comp gateway"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M5.93 4.93a10 10 0 0 0 0 14.14"/></svg>Load Balancer</div>
+                <div class="comp gateway"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>API Cache Layer</div>
+              </div>
+            </div>
+          </td></tr>
+          <tr><td style="padding-right:12px;">
+            <div class="tier-row" style="min-height:88px;">
+              <div class="tier-label">Core<br>Domains</div>
+              <div class="tier-content" style="flex-wrap:wrap;">
+                <div class="comp service"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Auth Service</div>
+                <div class="comp service"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>User Service</div>
+                <div class="comp service"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Subject Service</div>
+                <div class="comp service"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Question Service</div>
+                <div class="comp service"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Answer Service</div>
+                <div class="comp service"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Scan Service</div>
+                <div class="comp service"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Mock Test Service</div>
+                <div class="comp service"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>Analytics Service</div>
+                <div class="comp service"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Subscription Service</div>
+              </div>
+            </div>
+          </td></tr>
+          <tr><td style="padding-right:12px;">
+            <div class="tier-row" style="min-height:64px;">
+              <div class="tier-label">AI<br>Domain</div>
+              <div class="tier-content align-center">
+                <div class="comp ai"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Learning Engine</div>
+                <div class="comp ai"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>AI Tutor (RAG)</div>
+              </div>
+            </div>
+          </td></tr>
+          <tr><td style="padding-right:12px;">
+            <div class="tier-row" style="min-height:64px;">
+              <div class="tier-label">Data<br>Layer</div>
+              <div class="tier-content align-center">
+                <div class="comp data"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>PostgreSQL</div>
+                <div class="comp data"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Redis Cache</div>
+                <div class="comp data"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Elasticsearch</div>
+                <div class="comp data"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Pinecone (Vectors)</div>
+                <div class="comp data"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>S3 Storage</div>
+              </div>
+            </div>
+          </td></tr>
+          <tr><td style="padding-right:12px;">
+            <div class="tier-row" style="min-height:64px;">
+              <div class="tier-label">AI/ML</div>
+              <div class="tier-content align-center">
+                <div class="comp ai"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="3"/></svg>GPT-4o / Claude 3.5</div>
+                <div class="comp ai"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><circle cx="12" cy="12" r="3"/></svg>Ollama (Local)</div>
+                <div class="comp ai"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>EasyOCR / Whisper</div>
+                <div class="comp ai"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Sentence Transformers</div>
+              </div>
+            </div>
+          </td></tr>
+          <tr><td style="padding-right:12px;">
+            <div class="tier-row" style="min-height:56px;">
+              <div class="tier-label">Infra</div>
+              <div class="tier-content align-center">
+                <div class="comp infra"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>Railway / Vercel</div>
+                <div class="comp infra"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>BullMQ Workers</div>
+                <div class="comp infra"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>Cloudflare CDN</div>
+                <div class="comp infra"><svg class="comp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Prometheus + Grafana</div>
+              </div>
+            </div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION: AI LEARNING ENGINE -->
+<section>
+  <div class="container">
+    <div class="section-label">Core Feature</div>
+    <h2 class="serif">AI Learning Engine Pipeline</h2>
+    <p class="desc">Unlike simple Q&A apps, the AI Learning Engine transforms every question into a complete interactive lesson with explanation, mnemonics, flashcards, and related questions.</p>
+    
+    <div class="flow-section">
+      <div class="flow-card">
+        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Teaching Flow</h3>
+        <div class="flow-steps">
+          <div class="flow-step"><div class="step-num">1</div><div class="step-body"><div class="step-title">User Scans Question</div><div class="step-desc">OCR extracts text from image, normalized for Nepali script</div></div></div>
+          <div class="flow-step"><div class="step-num">2</div><div class="step-body"><div class="step-title">Find Verified Answer</div><div class="step-desc">Elasticsearch match with confidence scoring, source verification</div></div></div>
+          <div class="flow-step"><div class="step-num orange">3</div><div class="step-body"><div class="step-title">User Clicks "Teach Me"</div><div class="step-desc">Triggers AI Learning Engine — never AI-generates answers</div></div></div>
+          <div class="flow-step"><div class="step-num orange">4</div><div class="step-body"><div class="step-title">Context Retrieval</div><div class="step-desc">Topic notes, past questions, verified sources assembled</div></div></div>
+          <div class="flow-step"><div class="step-num orange">5</div><div class="step-body"><div class="step-title">LLM Generates Lesson</div><div class="step-desc">Structured lesson with explanation, mnemonic, flashcards</div></div></div>
+          <div class="flow-step"><div class="step-num orange">6</div><div class="step-body"><div class="step-title">Store & Cache</div><div class="step-desc">Saved to DB, flashcards created, Redis cached (24h TTL)</div></div></div>
+        </div>
+      </div>
+      
+      <div class="flow-card">
+        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>AI Lesson Structure</h3>
+        <div class="flow-steps">
+          <div class="flow-step"><div class="step-num blue">A</div><div class="step-body"><div class="step-title">Simple Explanation</div><div class="step-desc">Teacher-style explanation in Nepali + English</div></div></div>
+          <div class="flow-step"><div class="step-num blue">B</div><div class="step-body"><div class="step-title">Detailed Breakdown</div><div class="step-desc">Process, background, key features, sub-topics</div></div></div>
+          <div class="flow-step"><div class="step-num blue">C</div><div class="step-body"><div class="step-title">Exam Notes</div><div class="step-desc">Loksewa-specific shortcuts and important points</div></div></div>
+          <div class="flow-step"><div class="step-num blue">D</div><div class="step-body"><div class="step-title">Mnemonic</div><div class="step-desc">Memory aid to recall the answer easily</div></div></div>
+          <div class="flow-step"><div class="step-num blue">E</div><div class="step-body"><div class="step-title">Related MCQs</div><div class="step-desc">AI-generated similar questions from same topic</div></div></div>
+          <div class="flow-step"><div class="step-num pink">F</div><div class="step-body"><div class="step-title">Flashcards</div><div class="step-desc">Auto-generated cards for spaced repetition review</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION: DOMAIN STRUCTURE -->
+<section>
+  <div class="container">
+    <div class="section-label">Code Organization</div>
+    <h2 class="serif">Domain Architecture</h2>
+    <p class="desc">Each domain is a fully encapsulated bounded context with its own entities, services, repositories, DTOs, and controllers.</p>
+    
+    <div class="domain-tree">
+      <div class="domain-item">
+        <div class="domain-header">
+          <div class="domain-icon" style="background:#dbeafe;"><svg viewBox="0 0 24 24" fill="none" stroke="#1e40af" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <span class="domain-name">auth</span><span class="domain-count">4 modules</span>
+        </div>
+        <div class="domain-modules"><span class="module">entities</span><span class="module">services</span><span class="module">controllers</span><span class="module">dto</span></div>
+      </div>
+      <div class="domain-item">
+        <div class="domain-header">
+          <div class="domain-icon" style="background:#fce7f3;"><svg viewBox="0 0 24 24" fill="none" stroke="#9d174d" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+          <span class="domain-name">learning</span><span class="domain-count">8 modules</span><span style="font-size:10px;padding:2px 6px;background:#fef9c3;color:#854d0e;border-radius:4px;font-weight:600;">CORE</span>
+        </div>
+        <div class="domain-modules"><span class="module">entities</span><span class="module">repositories</span><span class="module">services</span><span class="module">controllers</span><span class="module">dto</span><span class="module">ai/</span><span class="module">rag/</span><span class="module">workers/</span></div>
+      </div>
+      <div class="domain-item">
+        <div class="domain-header">
+          <div class="domain-icon" style="background:#dcfce7;"><svg viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <span class="domain-name">ai-tutor</span><span class="domain-count">7 modules</span>
+        </div>
+        <div class="domain-modules"><span class="module">entities</span><span class="module">repositories</span><span class="module">services</span><span class="module">controllers</span><span class="module">dto</span><span class="module">rag/</span><span class="module">context/</span></div>
+      </div>
+      <div class="domain-item">
+        <div class="domain-header">
+          <div class="domain-icon" style="background:#fef3c7;"><svg viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+          <span class="domain-name">questions</span><span class="domain-count">5 modules</span>
+        </div>
+        <div class="domain-modules"><span class="module">entities</span><span class="module">repositories</span><span class="module">services</span><span class="module">controllers</span><span class="module">mappers/</span></div>
+      </div>
+      <div class="domain-item">
+        <div class="domain-header">
+          <div class="domain-icon" style="background:#f3e8ff;"><svg viewBox="0 0 24 24" fill="none" stroke="#6b21a8" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+          <span class="domain-name">mock-test</span><span class="domain-count">5 modules</span>
+        </div>
+        <div class="domain-modules"><span class="module">entities</span><span class="module">repositories</span><span class="module">services</span><span class="module">controllers</span><span class="module">dto</span></div>
+      </div>
+      <div class="domain-item">
+        <div class="domain-header">
+          <div class="domain-icon" style="background:#f0f9ff;"><svg viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+          <span class="domain-name">scan</span><span class="domain-count">6 modules</span>
+        </div>
+        <div class="domain-modules"><span class="module">entities</span><span class="module">repositories</span><span class="module">services</span><span class="module">controllers</span><span class="module">dto</span><span class="module">workers/</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION: DATA MODELS -->
+<section>
+  <div class="container">
+    <div class="section-label">Data Layer</div>
+    <h2 class="serif">Database Schema Design</h2>
+    <p class="desc">Normalized relational schema with proper associations. 15+ core tables with optimized indexes for millions of records.</p>
+    
+    <div class="data-grid">
+      <div class="data-card"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>users</h4><p>Core user accounts with subscription</p><div class="fields"><span class="field pk">id (PK)</span><span class="field">email</span><span class="field">password_hash</span><span class="field">name</span><span class="field">role</span><span class="field">subscription_id (FK)</span></div></div>
+      <div class="data-card"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>subjects</h4><p>Loksewa exam subjects</p><div class="fields"><span class="field pk">id (PK)</span><span class="field">name</span><span class="field">name_np</span><span class="field">icon</span><span class="field">sort_order</span></div></div>
+      <div class="data-card"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>topics</h4><p>Subject topics with Loksewa weight</p><div class="fields"><span class="field pk">id (PK)</span><span class="field">subject_id (FK)</span><span class="field">name</span><span class="field">name_np</span><span class="field">loksewa_weight</span></div></div>
+      <div class="data-card"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>questions</h4><p>Verified question bank</p><div class="fields"><span class="field pk">id (PK)</span><span class="field">topic_id (FK)</span><span class="field">question_text</span><span class="field">difficulty</span><span class="field">exam_year</span><span class="field">is_verified</span></div></div>
+      <div class="data-card"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>answers</h4><p>Verified answers with source</p><div class="fields"><span class="field pk">id (PK)</span><span class="field">question_id (FK)</span><span class="field">answer_text</span><span class="field">explanation</span><span class="field">is_verified</span></div></div>
+      <div class="data-card"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>ai_lessons</h4><p>Generated AI teaching lessons</p><div class="fields"><span class="field pk">id (PK)</span><span class="field">question_id (FK)</span><span class="field">simple_explanation</span><span class="field">mnemonic</span><span class="field">cache_key</span></div></div>
+      <div class="data-card"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>flashcards</h4><p>Spaced repetition flashcards</p><div class="fields"><span class="field pk">id (PK)</span><span class="field">question_id (FK)</span><span class="field">front</span><span class="field">back</span><span class="field">ease_factor</span><span class="field">interval</span></div></div>
+      <div class="data-card"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>study_progress</h4><p>Per-user, per-topic progress tracking</p><div class="fields"><span class="field pk">id (PK)</span><span class="field">user_id (FK)</span><span class="field">topic_id (FK)</span><span class="field">completion_%</span><span class="field">mastery_level</span></div></div>
+      <div class="data-card"><h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>tutor_conversations</h4><p>AI Tutor chat history</p><div class="fields"><span class="field pk">id (PK)</span><span class="field">user_id (FK)</span><span class="field">subject_id</span><span class="field">context_json</span><span class="field">message_count</span></div></div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION: TECH STACK -->
+<section>
+  <div class="container">
+    <div class="section-label">Technology</div>
+    <h2 class="serif">Tech Stack</h2>
+    <p class="desc">Carefully selected technologies for performance, type safety, and scalability.</p>
+    <div class="stack-grid">
+      <div class="stack-card"><div class="stack-icon" style="background:#f0f9ff;"><svg viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><h4>Fastify</h4><p>Backend Framework</p></div>
+      <div class="stack-card"><div class="stack-icon" style="background:#ecfdf5;"><svg viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div><h4>TypeScript</h4><p>Language (strict mode)</p></div>
+      <div class="stack-card"><div class="stack-icon" style="background:#fef3c7;"><svg viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/></svg></div><h4>PostgreSQL 16</h4><p>Primary Database</p></div>
+      <div class="stack-card"><div class="stack-icon" style="background:#f5f3ff;"><svg viewBox="0 0 24 24" fill="none" stroke="#5b21b6" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><h4>Redis 7</h4><p>Cache & Queue</p></div>
+      <div class="stack-card"><div class="stack-icon" style="background:#fce7f3;"><svg viewBox="0 0 24 24" fill="none" stroke="#9d174d" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div><h4>Pinecone</h4><p>Vector Database</p></div>
+      <div class="stack-card"><div class="stack-icon" style="background:#fff7ed;"><svg viewBox="0 0 24 24" fill="none" stroke="#9a3412" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><h4>Elasticsearch</h4><p>Full-text Search</p></div>
+      <div class="stack-card"><div class="stack-icon" style="background:#dcfce7;"><svg viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><circle cx="12" cy="12" r="3"/></svg></div><h4>GPT-4o / Claude</h4><p>AI Language Models</p></div>
+      <div class="stack-card"><div class="stack-icon" style="background:#fef9c3;"><svg viewBox="0 0 24 24" fill="none" stroke="#854d0e" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><h4>EasyOCR</h4><p>Nepali OCR Engine</p></div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION: SCALABILITY -->
+<section>
+  <div class="container">
+    <div class="section-label">Scalability</div>
+    <h2 class="serif">Designed for Millions</h2>
+    <p class="desc">Architecture patterns that handle massive traffic while maintaining sub-200ms response times.</p>
+    <div class="scale-section">
+      <div class="scale-top">
+        <div class="scale-metric"><div class="num">1M+</div><div class="label">Daily searches</div></div>
+        <div class="scale-metric"><div class="num">&lt;200ms</div><div class="label">P99 response</div></div>
+        <div class="scale-metric"><div class="num">99.9%</div><div class="label">Uptime SLA</div></div>
+      </div>
+      <div class="scale-features">
+        <div class="scale-feature"><div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></div><div><h5>Horizontal Scaling</h5><p>API instances auto-scale with demand via container orchestration</p></div></div>
+        <div class="scale-feature"><div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div><h5>Redis Caching</h5><p>Verified answers and AI lessons cached with smart TTL</p></div></div>
+        <div class="scale-feature"><div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div><div><h5>Read Replicas</h5><p>Database replicas for query-heavy operations</p></div></div>
+        <div class="scale-feature"><div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M5.93 4.93a10 10 0 0 0 0 14.14"/></svg></div><div><h5>Connection Pooling</h5><p>PgBouncer manages database connection limits</p></div></div>
+        <div class="scale-feature"><div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div><div><h5>Async AI Workers</h5><p>BullMQ processes OCR and lesson generation off main thread</p></div></div>
+        <div class="scale-feature"><div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></div><div><h5>Edge CDN</h5><p>Static assets and images served from Cloudflare edges</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION: API -->
+<section>
+  <div class="container">
+    <div class="section-label">REST API</div>
+    <h2 class="serif">API Endpoints</h2>
+    <p class="desc">RESTful API design with versioning, pagination, and consistent response formats.</p>
+    <div class="api-grid">
+      <div class="api-group"><h4><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Auth & Users</h4><div class="method"><span class="method-badge post">POST</span><span class="method-path">/api/auth/register</span></div><div class="method"><span class="method-badge post">POST</span><span class="method-path">/api/auth/login</span></div><div class="method"><span class="method-badge post">POST</span><span class="method-path">/api/auth/refresh</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/users/me</span></div><div class="method"><span class="method-badge put">PUT</span><span class="method-path">/api/users/me</span></div></div>
+      <div class="api-group"><h4><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Subjects & Topics</h4><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/subjects</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/subjects/:id/topics</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/topics/:id</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/topics/:id/notes</span></div></div>
+      <div class="api-group"><h4><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Questions</h4><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/questions?subject=&topic=&difficulty=</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/questions/search?q=</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/questions/:id</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/questions/:id/answer</span></div></div>
+      <div class="api-group"><h4><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Scan & OCR</h4><div class="method"><span class="method-badge post">POST</span><span class="method-path">/api/scan</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/scan/:id</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/scan/:id/result</span></div></div>
+      <div class="api-group"><h4><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>AI Learning</h4><div class="method"><span class="method-badge post">POST</span><span class="method-path">/api/lessons/generate</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/lessons/:questionId</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/flashcards?topic=</span></div><div class="method"><span class="method-badge post">POST</span><span class="method-path">/api/flashcards/:id/review</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/progress</span></div><div class="method"><span class="method-badge put">PUT</span><span class="method-path">/api/progress/:topicId</span></div></div>
+      <div class="api-group"><h4><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>AI Tutor</h4><div class="method"><span class="method-badge post">POST</span><span class="method-path">/api/tutor/chat</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/tutor/conversations</span></div><div class="method"><span class="method-badge get">GET</span><span class="method-path">/api/tutor/conversations/:id</span></div><div class="method"><span class="method-badge post">POST</span><span class="method-path">/api/tutor/conversations</span></div></div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION: BOTTOM NAV -->
+<section>
+  <div class="container">
+    <div class="section-label">Product</div>
+    <h2 class="serif">Bottom Navigation</h2>
+    <p class="desc">The <strong>Preparation</strong> tab is the star feature — transforms the app from a question bank to a full learning platform.</p>
+    <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+      <div style="text-align:center;padding:16px 24px;background:var(--card);border:1px solid var(--border);border-radius:12px;min-width:100px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2" style="margin-bottom:6px;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><div style="font-size:12px;font-weight:500;color:var(--text);">Home</div></div>
+      <div style="text-align:center;padding:16px 24px;background:var(--card);border:1px solid var(--border);border-radius:12px;min-width:100px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2" style="margin-bottom:6px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><div style="font-size:12px;font-weight:500;color:var(--text);">Scan</div></div>
+      <div style="text-align:center;padding:16px 24px;background:var(--primary);border:1px solid var(--primary);border-radius:12px;min-width:100px;color:white;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" style="margin-bottom:6px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;font-weight:500;">Preparation</div><div style="font-size:10px;opacity:0.7;">STAR FEATURE</div></div>
+      <div style="text-align:center;padding:16px 24px;background:var(--card);border:1px solid var(--border);border-radius:12px;min-width:100px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2" style="margin-bottom:6px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><div style="font-size:12px;font-weight:500;color:var(--text);">Mock Test</div></div>
+      <div style="text-align:center;padding:16px 24px;background:var(--card);border:1px solid var(--border);border-radius:12px;min-width:100px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c7a72" stroke-width="2" style="margin-bottom:6px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><div style="font-size:12px;font-weight:500;color:var(--text);">Profile</div></div>
+    </div>
+    <div style="margin-top:28px;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:16px;">
+      <h4 style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;">Preparation Module — Subject Structure</h4>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div style="padding:14px;background:var(--cream);border-radius:10px;"><div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:6px;"> Constitution</div><div style="font-size:11px;color:var(--soft);line-height:1.6;">Intro · Fundamental Rights<br>Parliament · Judiciary<br>Constitutional Bodies</div></div>
+        <div style="padding:14px;background:var(--cream);border-radius:10px;"><div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:6px;"> History</div><div style="font-size:11px;color:var(--soft);line-height:1.6;">Ancient · Medieval<br>Modern · Revolution<br>Loktantra</div></div>
+        <div style="padding:14px;background:var(--cream);border-radius:10px;"><div style="font-size:13px;font-weight:600;color:var(--accent2);margin-bottom:6px;"> Geography</div><div style="font-size:11px;color:var(--soft);line-height:1.6;">Physical · Climate<br>Resources · Agriculture<br>Industry</div></div>
+        <div style="padding:14px;background:var(--cream);border-radius:10px;"><div style="font-size:13px;font-weight:600;color:#7c3aed;margin-bottom:6px;"> Current Affairs</div><div style="font-size:11px;color:var(--soft);line-height:1.6;">National · International<br>Economy · Politics<br>Science & Tech</div></div>
+        <div style="padding:14px;background:var(--cream);border-radius:10px;"><div style="font-size:13px;font-weight:600;color:#0891b2;margin-bottom:6px;"> Economics</div><div style="font-size:11px;color:var(--soft);line-height:1.6;">Micro · Macro<br>Planning · Budget<br>Trade & Banking</div></div>
+        <div style="padding:14px;background:var(--cream);border-radius:10px;"><div style="font-size:13px;font-weight:600;color:#059669;margin-bottom:6px;"> General Knowledge</div><div style="font-size:11px;color:var(--soft);line-height:1.6;">Nepal GK · World GK<br>Sports · Awards<br>Organizations</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION: PRODUCT POSITIONING -->
+<section>
+  <div class="container">
+    <div style="text-align:center;max-width:700px;margin:0 auto 32px;">
+      <div class="section-label" style="justify-content:center;">Positioning</div>
+      <h2 class="serif" style="font-size:32px;">From Question Bank → AI Learning Platform</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div style="padding:24px;background:#fef2f2;border:1px solid #fecaca;border-radius:16px;"><div style="font-size:13px;font-weight:600;color:#991b1b;margin-bottom:12px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#991b1b" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>OLD — Question Bank</div><div style="font-size:13px;color:#7f1d1d;line-height:1.7;"><strong>User scans question</strong><br>→ Finds answer<br>→ Done<br><br><strong>Problem:</strong> Students memorize answers but don't understand concepts. Low retention. No learning path.</div></div>
+      <div style="padding:24px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:16px;"><div style="font-size:13px;font-weight:600;color:#166534;margin-bottom:12px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>NEW — AI Learning Platform</div><div style="font-size:13px;color:#14532d;line-height:1.7;"><strong>User scans question</strong><br>→ Sees verified answer<br>→ Clicks "Teach Me"<br>→ Gets full AI lesson<br><br><strong>Value:</strong> Understand, remember, revise, pass. Much higher retention and engagement.</div></div>
+    </div>
+    <div style="margin-top:24px;padding:24px;background:var(--card);border:1px solid var(--border);border-radius:16px;text-align:center;">
+      <div style="font-family:'DM Serif Display',serif;font-size:24px;color:var(--text);margin-bottom:8px;">Product Position</div>
+      <div style="font-size:16px;font-weight:600;color:var(--primary);">"Nepal's AI-Powered Loksewa Learning Platform"</div>
+      <div style="font-size:13px;color:var(--soft);margin-top:8px;">The real value is helping students <strong style="color:var(--text);">understand, remember, revise, and pass</strong> Loksewa exams.</div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,88 @@
+# Loksewa AI App — Comprehensive .gitignore
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─── Android / Gradle ────────────────────────────────────────────────────────
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+local.properties
+*.iml
+.cxx/
+
+# Android Studio IDE files
+.idea/
+*.xml
+!app/src/**/*.xml
+!database/schema.sql
+!.github/**/*.xml
+
+# Keystore / signing
+*.jks
+*.keystore
+keystore.properties
+
+# ─── Python / Backend ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.env
+.env.*
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ─── SQLite databases (runtime only) ─────────────────────────────────────────
+runtime/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Do NOT ignore the seed database asset
+!app/src/main/assets/loksewa_v1.db.gz
+
+# ─── Node / Admin Dashboard ──────────────────────────────────────────────────
+admin-dashboard/node_modules/
+admin-dashboard/.next/
+admin-dashboard/dist/
+
+# ─── OS / Editor ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+*.log
+
+# ─── Secrets / Keys ──────────────────────────────────────────────────────────
+*.pem
+*.p8
+*.p12
+secrets.yaml
+secrets.json
+google-services.json
+GoogleService-Info.plist
+
+# ─── Large media files ───────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+stitch_*.zip
+
+# ─── Temp / Generated ────────────────────────────────────────────────────────
+.mavis/
+.opencode/
+settings.gradle.bak
