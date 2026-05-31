@@ -1,7 +1,9 @@
 package com.loksewa.aiapp.camera
 
 import android.content.Context
+import androidx.annotation.OptIn as AndroidXOptIn
 import androidx.camera.core.*
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -19,7 +21,7 @@ import javax.inject.Singleton
 
 @Singleton
 class CameraScannerManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val textRecognitionService: TextRecognitionService
 ) {
     private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -62,6 +64,7 @@ class CameraScannerManager @Inject constructor(
         }, ContextCompat.getMainExecutor(context))
     }
 
+    @AndroidXOptIn(ExperimentalGetImage::class)
     private fun processImageProxy(
         imageProxy: ImageProxy,
         onTextRecognized: (String) -> Unit,

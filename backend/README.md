@@ -1,48 +1,43 @@
-# Loksewa AI Backend
+# Loksewa AI Node Backend
 
-FastAPI backend for verified Loksewa question ingestion, search, sync deltas, mobile auth, mock tests, user reports, and the React admin dashboard.
+This is the only backend runtime for the app. The old Python compatibility server has been removed.
 
-## Architecture Layout
+The server is a Fastify/TypeScript app in `src/app.ts`. It serves the mobile API, admin API, admin dashboard build, course catalog, mock-test flow, sync delta endpoint, reporting endpoint, and scraper controls.
 
-`backend/src` now mirrors the clean TypeScript backend structure from `ARCHITECTURE.md`, including `core`, `domains`, `shared`, `config`, `routes`, `workers`, and `app.ts`.
+## Environments
 
-The TypeScript implementation from `.mavis/plans/plan.yaml` is available as a standalone Fastify + Prisma backend package in this folder. The existing FastAPI adapter remains available as the current compatibility runtime.
+Environment loading happens in this order, with real OS environment variables taking priority:
 
-TypeScript backend:
+1. `.env.<environment>.local`
+2. `.env.local`
+3. `.env.<environment>`
+4. `.env`
+
+Tracked environment files:
+
+- `.env.development`: local development defaults.
+- `.env.test`: automated test defaults.
+- `.env.production.example`: production template; copy values into your host secrets or deployment environment.
+
+Production fails fast if these are still using development values:
+
+- `LOKSEWA_ADMIN_TOKEN`
+- `LOKSEWA_DELTA_SIGNING_SECRET`
+- `LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD`
+- `LOKSEWA_CORS_ORIGINS`
+
+## Development
 
 ```powershell
 cd backend
 npm install
-$env:DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/loksewa_ai?schema=public"
-$env:AI_PROVIDER="ollama"
-$env:OLLAMA_MODEL="qwen2.5:3b"
-$env:AI_LESSON_MODEL="qwen2.5:3b"
-$env:AI_TUTOR_MODEL="qwen2.5:3b"
-npx prisma generate
-npm run typecheck
-npm run build
 npm run dev
 ```
 
-Ollama setup:
+Or from the repo root:
 
 ```powershell
-ollama pull qwen2.5:3b
-ollama serve
-```
-
-FastAPI compatibility runtime:
-
-```powershell
-python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload
-```
-
-## Run Locally
-
-```powershell
-$env:LOKSEWA_ADMIN_TOKEN="change-me"
-$env:LOKSEWA_DELTA_SIGNING_SECRET="change-me-too"
-python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload
+.\scripts\run_backend_dev.ps1
 ```
 
 Health check:
@@ -51,22 +46,16 @@ Health check:
 curl.exe http://127.0.0.1:8000/healthz
 ```
 
-React dashboard:
+Dashboard URL after building the React admin dashboard:
+
+```powershell
+cd ..\admin-dashboard
+npm install
+npm run build
+```
 
 ```text
 http://127.0.0.1:8000/dashboard/
-```
-
-Exact supplied architecture page:
-
-```text
-http://127.0.0.1:8000/architecture
-```
-
-Exact supplied architecture markdown:
-
-```text
-http://127.0.0.1:8000/architecture.md
 ```
 
 Development admin credentials:
@@ -76,111 +65,67 @@ Email: admin@loksewa.local
 Password: LoksewaAdmin@123
 ```
 
-Override these before any real deployment:
+## Test
 
 ```powershell
-$env:LOKSEWA_BOOTSTRAP_ADMIN_EMAIL="admin@example.com"
-$env:LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD="replace-with-a-strong-secret"
-$env:LOKSEWA_SESSION_SECRET="replace-with-a-strong-session-secret"
-```
-
-## React Dashboard
-
-```powershell
-cd admin-dashboard
-npm install
-npm run dev
+cd backend
+npm test
+npm run typecheck
 npm run build
 ```
 
-The production build is served by FastAPI from `admin-dashboard/dist` at `/dashboard/`.
+`npm run check` runs typecheck and tests together.
 
-## Import Review Data
+## Production
 
-Instruction-style JSONL is imported as `needs_review` by default:
+Set real secrets from `.env.production.example`, then build and run:
 
 ```powershell
-python -m backend.import_jsonl `
-  --input data\training_samples.jsonl `
-  --batch-name "training-samples" `
-  --source-name "Internal sample set" `
-  --source-license "Internal development sample" `
-  --verifier "data-team"
+cd backend
+npm ci
+npm run build
+$env:NODE_ENV="production"
+$env:LOKSEWA_ENV="production"
+node dist/index.js
 ```
 
-Only use `--verification-status verified` after your team has checked the answer, source, and license.
+Docker production build from the repo root:
 
-## Public Endpoints
+```powershell
+docker build -f backend/Dockerfile -t loksewa-ai-backend .
+```
+
+Docker Compose production deploy:
+
+```powershell
+docker compose -f backend/docker-compose.production.yml up -d --build
+```
+
+The production image stores the JSON runtime database at `/data/node-backend-db.json` and includes the built `admin-dashboard/dist` bundle.
+
+## Main API
 
 - `GET /healthz`
 - `GET /v1/metadata`
-- `GET /v1/categories`
-- `GET /v1/questions`
-- `GET /v1/questions/{id}`
 - `POST /v1/auth/register`
 - `POST /v1/auth/login`
 - `GET /v1/auth/me`
 - `POST /v1/auth/logout`
-- `GET /v1/mock-tests`
-- `POST /v1/mock-tests/{id}/start`
-- `GET /v1/mock-attempts/{id}`
-- `POST /v1/mock-attempts/{id}/answers`
-- `POST /v1/mock-attempts/{id}/submit`
+- `GET /v1/subjects`
+- `GET /v1/courses`
+- `GET /v1/questions`
 - `POST /v1/search`
+- `GET /v1/mock-tests`
+- `POST /v1/mock-tests/:id/start`
+- `POST /v1/mock-attempts/:id/answers`
+- `POST /v1/mock-attempts/:id/submit`
 - `GET /v1/sync/delta?since_version=1`
 - `POST /v1/reports`
 
-## Admin Endpoints
+Admin endpoints use either `Authorization: Bearer <admin-login-token>` or `X-Admin-Token: <LOKSEWA_ADMIN_TOKEN>`.
 
-Admin endpoints require either an admin Bearer token from `/v1/auth/login` or the legacy development token header:
+## Notes
 
-```http
-X-Admin-Token: <LOKSEWA_ADMIN_TOKEN>
-```
-
-- `GET /v1/admin/questions`
-- `POST /v1/admin/questions`
-- `PUT /v1/admin/questions/{id}`
-- `POST /v1/admin/import-batch`
-- `POST /v1/admin/questions/{id}/review`
-- `DELETE /v1/admin/questions/{id}`
-- `GET/POST/PUT/DELETE /v1/admin/syllabus`
-- `GET/POST/PUT/DELETE /v1/admin/scraper/sources`
-- `POST /v1/admin/scraper/run`
-- `GET /v1/admin/scraper/runs`
-- `GET /v1/admin/scraper/documents`
-- `GET/POST/PUT/DELETE /v1/admin/mock-tests`
-- `GET/POST/PUT/DELETE /v1/admin/users`
-- `GET/PUT/DELETE /v1/admin/reports`
-
-## Production Notes
-
-- Put this API behind HTTPS only.
-- Set strong secrets through environment variables.
-- Do not expose `/docs` in production.
-- Keep public endpoints read-only except user reports.
-- Use signed delta payloads for mobile sync.
-- Store only minimal report metadata; device IDs are SHA-256 hashed.
-- Do not ingest copyrighted/private data unless you have rights to redistribute it.
-
-## Realtime Syllabus Scraper
-
-The FastAPI runtime includes a source-based web updater for syllabus material. It respects `robots.txt` by default, caches extracted pages in memory and SQLite, maps each document to a syllabus category, and upserts the matching `syllabus_entries` record when the source content changes.
-
-Configuration:
-
-```powershell
-$env:LOKSEWA_SCRAPER_ENABLED="true"
-$env:LOKSEWA_SCRAPER_TARGET_URLS="https://www.psc.gov.np"
-$env:LOKSEWA_SCRAPER_REFRESH_INTERVAL_SECONDS="3600"
-$env:LOKSEWA_SCRAPER_MAX_PAGES_PER_SOURCE="25"
-```
-
-Manual run:
-
-```powershell
-curl.exe -X POST http://127.0.0.1:8000/v1/admin/scraper/run `
-  -H "X-Admin-Token: dev-admin-token-change-me" `
-  -H "Content-Type: application/json" `
-  -d "{\"source_id\":1,\"max_pages\":10}"
-```
+- Swagger UI is available at `/docs` outside production.
+- The current runtime database is JSON-file backed for developer speed. Use one process per data volume, or migrate the route handlers to the Prisma/Postgres domain layer before high-traffic production.
+- Keep `LOKSEWA_SCRAPER_ENABLED=false` unless source allowlists and licensing have been reviewed.

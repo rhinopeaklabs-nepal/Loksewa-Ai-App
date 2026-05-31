@@ -1,33 +1,66 @@
 package com.loksewa.aiapp.data.repository
 
+import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.loksewa.aiapp.data.local.UserDao
 import com.loksewa.aiapp.data.local.UserEntity
 import com.loksewa.aiapp.data.remote.LoksewaApiService
 import com.loksewa.aiapp.data.remote.LoginRequest
 import com.loksewa.aiapp.data.remote.RegisterRequest
 import com.loksewa.aiapp.data.remote.AuthResponse
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class TokenManager @Inject constructor(
+    @ApplicationContext context: Context,
     private val dataStore: DataStore<Preferences>
 ) {
-    private val tokenKey = stringPreferencesKey("auth_token")
+    private val legacyTokenKey = stringPreferencesKey("auth_token")
+    private val securePreferences by lazy {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "secure_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
 
-    suspend fun getToken(): String? = dataStore.data.first()[tokenKey]
+    suspend fun getToken(): String? {
+        val encryptedToken = securePreferences.getString(SECURE_TOKEN_KEY, null)
+        if (!encryptedToken.isNullOrBlank()) return encryptedToken
+
+        val legacyToken = dataStore.data.first()[legacyTokenKey]
+        if (!legacyToken.isNullOrBlank()) {
+            saveToken(legacyToken)
+            return legacyToken
+        }
+        return null
+    }
 
     suspend fun saveToken(token: String) {
-        dataStore.edit { it[tokenKey] = token }
+        securePreferences.edit().putString(SECURE_TOKEN_KEY, token).apply()
+        dataStore.edit { it.remove(legacyTokenKey) }
     }
 
     suspend fun clearToken() {
-        dataStore.edit { it.remove(tokenKey) }
+        securePreferences.edit().remove(SECURE_TOKEN_KEY).apply()
+        dataStore.edit { it.remove(legacyTokenKey) }
+    }
+
+    private companion object {
+        const val SECURE_TOKEN_KEY = "auth_token"
     }
 }
 

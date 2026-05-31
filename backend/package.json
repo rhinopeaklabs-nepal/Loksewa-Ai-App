@@ -4,9 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:once": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "start:prod": "node dist/index.js",
+    "test": "npm run build && node tests/app.test.mjs",
+    "test:watch": "npm test",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test",
+    "prisma:generate": "prisma generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.60.0",

@@ -299,10 +299,10 @@ Do not import scraped data into the verified bank unless licensing and correctne
 ## 20. Current Implementation Status
 
 - Android debug app exists under `app/` and displays the exported Stitch UI screens.
-- FastAPI backend exists under `backend/`.
+- Node/Fastify backend exists under `backend/src`.
 - SQLite FTS5 schema exists under `database/schema.sql`.
 - Seed database builder exists under `database/seed_script.py`.
-- JSONL review importer exists under `backend/import_jsonl.py`.
+- Review batch import is exposed by the Node admin API at `/v1/admin/import-batch`.
 - Store compliance and privacy drafts exist under `docs/` and `PRIVACY.md`.
 
 This is now a functional development baseline, not a final store submission. The release app still needs real OCR integration, authenticated admin tooling, licensed verified data, native production screens, release signing, privacy-policy publication, and full Apple/Google review preparation.

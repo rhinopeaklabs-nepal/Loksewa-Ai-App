@@ -35,10 +35,13 @@ Convert each record into:
 }
 ```
 
-Instruction-style JSONL can be imported with:
+Instruction-style JSONL should be converted into a reviewed question array, then imported through the Node admin API:
 
 ```powershell
-python -m backend.import_jsonl --input data\training_samples.jsonl --batch-name "batch-001" --source-name "Internal sample set" --source-license "Internal development sample" --verifier "data-team"
+curl.exe -X POST http://127.0.0.1:8000/v1/admin/import-batch `
+  -H "X-Admin-Token: dev-admin-token-change-me" `
+  -H "Content-Type: application/json" `
+  -d "@data\training_samples.import.json"
 ```
 
 ## 3. Verify

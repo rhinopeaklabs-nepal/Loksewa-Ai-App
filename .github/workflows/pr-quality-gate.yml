@@ -1,4 +1,4 @@
-name: 🛡️ PR Quality Gate
+name: PR Quality Gate
 
 on:
   pull_request:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for SonarCloud
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -21,28 +21,36 @@ jobs:
           distribution: 'jetbrains'
           cache: gradle
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.12'
-          cache: pip
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
       - name: Grant gradlew permission
         run: chmod +x gradlew
 
-      - name: Install Python deps
-        run: pip install -r requirements.txt pytest pytest-cov ruff
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
 
-      - name: Run backend tests
-        run: pytest tests/ -v --tb=short
+      - name: Typecheck backend
+        run: npm run typecheck
+        working-directory: backend
 
-      - name: Run ruff lint
-        run: ruff check backend/ tests/
+      - name: Test backend
+        run: npm test
+        working-directory: backend
+
+      - name: Build backend
+        run: npm run build
+        working-directory: backend
 
       - name: Run Android lint
         run: ./gradlew lintDebug --no-daemon
 
-      - name: Compile Kotlin (fast check)
+      - name: Compile Kotlin
         run: ./gradlew compileDebugKotlin --no-daemon
 
       - name: Comment PR with results
@@ -54,5 +62,5 @@ jobs:
             await github.rest.issues.createComment({
               ...context.repo,
               issue_number: context.payload.pull_request.number,
-              body: `### ✅ Quality Gate Complete\n\n| Check | Status |\n|-------|--------|\n| Backend Tests | ${{ job.status == 'success' && '✅ Pass' || '❌ Fail' }} |\n| Python Lint | ${{ job.status == 'success' && '✅ Pass' || '❌ Fail' }} |\n| Android Lint | ${{ job.status == 'success' && '✅ Pass' || '❌ Fail' }} |\n| Kotlin Compile | ${{ job.status == 'success' && '✅ Pass' || '❌ Fail' }} |`
+              body: `### Quality Gate Complete\n\n| Check | Status |\n|-------|--------|\n| Node Backend | ${{ job.status == 'success' && 'Pass' || 'Fail' }} |\n| Android Lint | ${{ job.status == 'success' && 'Pass' || 'Fail' }} |\n| Kotlin Compile | ${{ job.status == 'success' && 'Pass' || 'Fail' }} |`
             });

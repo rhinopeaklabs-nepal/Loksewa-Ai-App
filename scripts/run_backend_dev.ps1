@@ -1,15 +1,15 @@
 $ErrorActionPreference = "Stop"
 
-if (-not $env:LOKSEWA_ADMIN_TOKEN) {
-  $env:LOKSEWA_ADMIN_TOKEN = "dev-admin-token-change-me"
-}
+$backendDir = Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\backend")
+Push-Location $backendDir
 
-if (-not $env:LOKSEWA_DELTA_SIGNING_SECRET) {
-  $env:LOKSEWA_DELTA_SIGNING_SECRET = "dev-delta-signing-secret-change-me"
-}
+try {
+  if (-not (Test-Path -LiteralPath "node_modules")) {
+    npm install
+  }
 
-if (-not $env:LOKSEWA_DB_PATH) {
-  $env:LOKSEWA_DB_PATH = "runtime\loksewa_backend.db"
+  npm run dev
 }
-
-python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload
+finally {
+  Pop-Location
+}

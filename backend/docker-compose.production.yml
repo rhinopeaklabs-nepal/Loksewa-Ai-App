@@ -1,0 +1,37 @@
+services:
+  backend:
+    image: loksewa-ai-backend:latest
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      NODE_ENV: production
+      LOKSEWA_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_BACKEND_DB_PATH: /data/node-backend-db.json
+      ADMIN_DIST_PATH: /app/admin-dashboard/dist
+      LOKSEWA_ADMIN_TOKEN: ${LOKSEWA_ADMIN_TOKEN:?Set LOKSEWA_ADMIN_TOKEN}
+      LOKSEWA_DELTA_SIGNING_SECRET: ${LOKSEWA_DELTA_SIGNING_SECRET:?Set LOKSEWA_DELTA_SIGNING_SECRET}
+      LOKSEWA_BOOTSTRAP_ADMIN_EMAIL: ${LOKSEWA_BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
+      LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD: ${LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD:?Set LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD}
+      LOKSEWA_CORS_ORIGINS: ${LOKSEWA_CORS_ORIGINS:?Set LOKSEWA_CORS_ORIGINS}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-24}
+      LOKSEWA_SCRAPER_ENABLED: ${LOKSEWA_SCRAPER_ENABLED:-false}
+      SCRAPER_INTERVAL_MS: ${SCRAPER_INTERVAL_MS:-3600000}
+      LOKSEWA_SCRAPER_REQUEST_TIMEOUT_MS: ${LOKSEWA_SCRAPER_REQUEST_TIMEOUT_MS:-12000}
+      LOKSEWA_SCRAPER_USER_AGENT: ${LOKSEWA_SCRAPER_USER_AGENT:-LoksewaAIStudyBot/1.0}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OLLAMA_URL: ${OLLAMA_URL:-}
+      DATABASE_URL: ${DATABASE_URL:-}
+      REDIS_URL: ${REDIS_URL:-}
+    volumes:
+      - loksewa_backend_data:/data
+
+volumes:
+  loksewa_backend_data:

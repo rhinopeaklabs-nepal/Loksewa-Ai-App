@@ -3,6 +3,7 @@
 
 # ─── Android / Gradle ────────────────────────────────────────────────────────
 .gradle/
+.kotlin/
 build/
 app/build/
 *.apk
@@ -33,6 +34,10 @@ __pycache__/
 *.pyd
 .env
 .env.*
+!backend/.env.example
+!backend/.env.development
+!backend/.env.test
+!backend/.env.production.example
 venv/
 .venv/
 env/
@@ -55,6 +60,8 @@ runtime/
 !app/src/main/assets/loksewa_v1.db.gz
 
 # ─── Node / Admin Dashboard ──────────────────────────────────────────────────
+backend/node_modules/
+backend/dist/
 admin-dashboard/node_modules/
 admin-dashboard/.next/
 admin-dashboard/dist/

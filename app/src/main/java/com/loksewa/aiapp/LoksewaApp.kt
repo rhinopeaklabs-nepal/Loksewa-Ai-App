@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -50,21 +51,21 @@ sealed class Screen(val route: String) {
     data object Register : Screen("register")
     data object Home : Screen("home")
     data object Scan : Screen("scan")
-    data object Result : Screen("result/{questionId}/{sourceValue}") {
+    object Result : Screen("result/{questionId}/{sourceValue}") {
         fun createRoute(questionId: Int?, sourceValue: String) = "result/${questionId ?: -1}/$sourceValue"
     }
     data object MockTestList : Screen("mock_test_list")
-    data object TestSession : Screen("test_session/{testId}") {
+    object TestSession : Screen("test_session/{testId}") {
         fun createRoute(testId: Int) = "test_session/$testId"
     }
-    data object TestResults : Screen("test_results/{attemptId}") {
+    object TestResults : Screen("test_results/{attemptId}") {
         fun createRoute(attemptId: Int) = "test_results/$attemptId"
     }
     data object Course : Screen("course")
-    data object CourseDetail : Screen("course_detail/{courseId}") {
+    object CourseDetail : Screen("course_detail/{courseId}") {
         fun createRoute(courseId: String) = "course_detail/$courseId"
     }
-    data object LearningFlow : Screen("learning_flow/{courseId}") {
+    object LearningFlow : Screen("learning_flow/{courseId}") {
         fun createRoute(courseId: String) = "learning_flow/$courseId"
     }
     data object Profile : Screen("profile")
@@ -111,14 +112,18 @@ fun LoksewaApp(
                     currentRoute = currentRoute,
                     onHomeClick = {
                         navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Home.route) { saveState = true }
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
                             launchSingleTop = true
                             restoreState = true
                         }
                     },
                     onMockClick = {
                         navController.navigate(Screen.MockTestList.route) {
-                            popUpTo(Screen.Home.route)
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -128,14 +133,18 @@ fun LoksewaApp(
                     },
                     onCourseClick = {
                         navController.navigate(Screen.Course.route) {
-                            popUpTo(Screen.Home.route)
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
                             launchSingleTop = true
                             restoreState = true
                         }
                     },
                     onProfileClick = {
                         navController.navigate(Screen.Profile.route) {
-                            popUpTo(Screen.Home.route)
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
                             launchSingleTop = true
                             restoreState = true
                         }

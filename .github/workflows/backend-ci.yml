@@ -1,88 +1,59 @@
-name: 🐍 Backend CI
+name: Node Backend CI
 
 on:
   push:
     branches: [ main, develop ]
     paths:
       - 'backend/**'
-      - 'database/**'
-      - 'tests/**'
-      - 'requirements*.txt'
+      - 'admin-dashboard/**'
+      - '.github/workflows/backend-ci.yml'
   pull_request:
     branches: [ main, develop ]
     paths:
       - 'backend/**'
-      - 'database/**'
-      - 'tests/**'
-      - 'requirements*.txt'
+      - 'admin-dashboard/**'
+      - '.github/workflows/backend-ci.yml'
 
 concurrency:
   group: backend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: 🔍 Python Lint (ruff)
+  node-backend:
+    name: Check, test, and build Node backend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.12'
-          cache: pip
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            admin-dashboard/package-lock.json
 
-      - name: Install ruff
-        run: pip install ruff
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
 
-      - name: Run ruff check
-        run: ruff check backend/ tests/
+      - name: Typecheck backend
+        run: npm run typecheck
+        working-directory: backend
 
-  test:
-    name: 🧪 Backend Tests
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v4
+      - name: Test backend
+        run: npm test
+        working-directory: backend
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: pip
+      - name: Build backend
+        run: npm run build
+        working-directory: backend
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt pytest pytest-cov httpx
+      - name: Install dashboard dependencies
+        run: npm ci
+        working-directory: admin-dashboard
 
-      - name: Run backend tests with coverage
-        run: |
-          pytest tests/ -v \
-            --cov=backend \
-            --cov-report=term-missing \
-            --cov-report=xml:coverage.xml \
-            --tb=short
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: backend-coverage
-          path: coverage.xml
-
-  security:
-    name: 🔒 Security Scan (bandit)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install bandit
-        run: pip install bandit
-
-      - name: Run bandit security scan
-        run: bandit -r backend/ -ll -x backend/tests
+      - name: Build dashboard
+        run: npm run build
+        working-directory: admin-dashboard

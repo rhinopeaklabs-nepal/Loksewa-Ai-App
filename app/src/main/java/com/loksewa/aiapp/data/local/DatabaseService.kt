@@ -26,8 +26,10 @@ data class QuestionEntity(
     val language: String,
     @ColumnInfo(name = "verification_status") val verificationStatus: String,
     val verifier: String,
+    @ColumnInfo(name = "import_batch_id") val importBatchId: Int? = null,
     @ColumnInfo(name = "data_version") val dataVersion: Int,
     @ColumnInfo(name = "verified_at") val verifiedAt: String?,
+    @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
     @ColumnInfo(name = "created_at") val createdAt: String,
     @ColumnInfo(name = "updated_at") val updatedAt: String
 )

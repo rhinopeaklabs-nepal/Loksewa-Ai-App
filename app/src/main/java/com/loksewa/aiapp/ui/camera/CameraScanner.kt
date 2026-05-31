@@ -3,7 +3,9 @@ package com.loksewa.aiapp.ui.camera
 import android.Manifest
 import android.content.Context
 import android.util.Log
+import androidx.annotation.OptIn as AndroidXOptIn
 import androidx.camera.core.*
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -95,6 +97,7 @@ class CameraScanner(
         }, ContextCompat.getMainExecutor(context))
     }
 
+    @AndroidXOptIn(ExperimentalGetImage::class)
     private fun processImageProxy(
         imageProxy: ImageProxy,
         onTextRecognized: (String) -> Unit,

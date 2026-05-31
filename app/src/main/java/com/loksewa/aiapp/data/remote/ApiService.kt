@@ -46,7 +46,7 @@ data class QuestionResponse(
     val explanation: String,
     @SerializedName("syllabus_category") val syllabusCategory: String,
     @SerializedName("source_name") val sourceName: String,
-    val verificationStatus: String
+    @SerializedName("verification_status") val verificationStatus: String
 )
 
 data class SearchRequest(
@@ -85,7 +85,7 @@ data class MockTestResponse(
 
 data class MockAttemptResponse(
     val id: Int,
-    val mockTest: MockTestResponse,
+    @SerializedName("mock_test") val mockTest: MockTestResponse,
     val status: String,
     @SerializedName("started_at") val startedAt: String,
     @SerializedName("ends_at") val endsAt: String,
@@ -97,6 +97,21 @@ data class MockAttemptResponse(
     @SerializedName("total_questions") val totalQuestions: Int,
     @SerializedName("total_marks") val totalMarks: Float,
     val questions: List<MockQuestionResponse>
+)
+
+data class MockAnswerResponse(
+    val id: Int,
+    @SerializedName("attempt_id") val attemptId: Int,
+    @SerializedName("question_id") val questionId: Int,
+    @SerializedName("selected_option") val selectedOption: String?,
+    @SerializedName("is_correct") val isCorrect: Boolean,
+    @SerializedName("marks_awarded") val marksAwarded: Float,
+    @SerializedName("answered_at") val answeredAt: String
+)
+
+data class MockSubmitResponse(
+    val attempt: MockAttemptResponse,
+    val answers: List<MockAnswerResponse>
 )
 
 data class MockQuestionResponse(
@@ -290,14 +305,14 @@ interface LoksewaApiService {
     @POST("v1/mock-tests/{id}/start")
     suspend fun startMockTest(@Path("id") mockTestId: Int): Response<MockAttemptResponse>
 
-    @POST("v1/mock-tests/attempts/{id}/answer")
+    @POST("v1/mock-attempts/{id}/answers")
     suspend fun answerQuestion(
         @Path("id") attemptId: Int,
         @Body request: AnswerRequest
     ): Response<MockAttemptResponse>
 
-    @POST("v1/mock-tests/attempts/{id}/submit")
-    suspend fun submitTest(@Path("id") attemptId: Int): Response<MockAttemptResponse>
+    @POST("v1/mock-attempts/{id}/submit")
+    suspend fun submitTest(@Path("id") attemptId: Int): Response<MockSubmitResponse>
 
     // User Stats
     @GET("v1/users/me/stats")

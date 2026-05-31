@@ -6,6 +6,17 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+def debugApiBaseUrl = (project.findProperty("LOKSEWA_DEBUG_API_BASE_URL")
+        ?: System.getenv("LOKSEWA_DEBUG_API_BASE_URL")
+        ?: "http://10.0.2.2:8000/").toString()
+def releaseApiBaseUrl = (project.findProperty("LOKSEWA_API_BASE_URL")
+        ?: System.getenv("LOKSEWA_API_BASE_URL")
+        ?: "https://api.loksewa.ai/").toString()
+
+if (!releaseApiBaseUrl.startsWith("https://")) {
+    throw new GradleException("LOKSEWA_API_BASE_URL must be HTTPS for release builds.")
+}
+
 android {
     namespace "com.loksewa.aiapp"
     compileSdk 36
@@ -21,16 +32,21 @@ android {
 
         // ML Kit requires a unique application ID suffix for bundled models
         resValue "string", "app_name", "Loksewa AI"
-        buildConfigField "String", "API_BASE_URL", "\"http://10.0.2.2:8000/\""
+        buildConfigField "String", "API_BASE_URL", "\"${releaseApiBaseUrl}\""
+        manifestPlaceholders = [usesCleartextTraffic: "false"]
     }
 
     buildTypes {
         debug {
             debuggable true
             minifyEnabled false
+            buildConfigField "String", "API_BASE_URL", "\"${debugApiBaseUrl}\""
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
             minifyEnabled true
+            buildConfigField "String", "API_BASE_URL", "\"${releaseApiBaseUrl}\""
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }

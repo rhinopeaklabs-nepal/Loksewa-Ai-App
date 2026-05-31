@@ -33,8 +33,9 @@ This design avoids the dangerous path of letting a compact phone model invent fa
 assets/
   README.md                  Notes for packaged compressed database assets
 backend/
-  app.py                     FastAPI API for search, sync, reports, and admin ingestion
-  import_jsonl.py            Streaming importer for structured and instruction JSONL data
+  src/                       Node/Fastify API for search, sync, reports, admin, and mocks
+  Dockerfile                 Production Node backend image
+  docker-compose.production.yml
 admin-dashboard/
   src/                       React admin dashboard for CRUD, users, reports, and mock tests
 database/
@@ -107,9 +108,9 @@ python database\seed_script.py --input data\questions.json --output build\loksew
 ## Run the Backend
 
 ```powershell
-$env:LOKSEWA_ADMIN_TOKEN="change-me"
-$env:LOKSEWA_DELTA_SIGNING_SECRET="change-me-too"
-python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload
+cd backend
+npm install
+npm run dev
 ```
 
 Health check:
@@ -143,7 +144,21 @@ Email: admin@loksewa.local
 Password: LoksewaAdmin@123
 ```
 
-Set `LOKSEWA_BOOTSTRAP_ADMIN_EMAIL`, `LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD`, and `LOKSEWA_SESSION_SECRET` before any real deployment.
+Set `LOKSEWA_BOOTSTRAP_ADMIN_EMAIL`, `LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD`, `LOKSEWA_ADMIN_TOKEN`, `LOKSEWA_DELTA_SIGNING_SECRET`, and `LOKSEWA_CORS_ORIGINS` before any real deployment.
+
+Backend verification:
+
+```powershell
+cd backend
+npm run check
+npm run build
+```
+
+Production container:
+
+```powershell
+docker compose -f backend/docker-compose.production.yml up -d --build
+```
 
 Public API:
 
@@ -181,18 +196,16 @@ The dashboard includes:
 
 ## Import Training or Review Data
 
-Instruction-style JSONL can be streamed into the backend database as review data:
+Review batches are imported through the Node admin API:
 
 ```powershell
-python -m backend.import_jsonl `
-  --input data\training_samples.jsonl `
-  --batch-name "training-samples" `
-  --source-name "Internal sample set" `
-  --source-license "Internal development sample" `
-  --verifier "data-team"
+curl.exe -X POST http://127.0.0.1:8000/v1/admin/import-batch `
+  -H "X-Admin-Token: dev-admin-token-change-me" `
+  -H "Content-Type: application/json" `
+  -d "@data\training_samples.import.json"
 ```
 
-Use `--verification-status verified` only after source, license, and answer correctness have been reviewed.
+Use `"verification_status": "verified"` only after source, license, and answer correctness have been reviewed.
 
 ## Android Prototype
 

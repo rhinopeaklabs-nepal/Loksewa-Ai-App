@@ -1,6 +1,7 @@
 package com.loksewa.aiapp.data.local
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -12,6 +13,10 @@ class DatabaseInstaller(
     private val assetFileName: String = "loksewa_v1.db.gz",
     private val databaseFileName: String = "loksewa_active.db"
 ) {
+    companion object {
+        const val ROOM_DATABASE_VERSION = 2
+    }
+
     private var isInstalled = false
 
     fun getDatabasePath(): String {
@@ -19,34 +24,56 @@ class DatabaseInstaller(
     }
 
     suspend fun ensureInstalled(): String = withContext(Dispatchers.IO) {
-        if (isInstalled) return@withContext getDatabasePath()
+        ensureInstalledBlocking()
+    }
+
+    @Synchronized
+    fun ensureInstalledBlocking(): String {
+        if (isInstalled) return getDatabasePath()
 
         val dbFile = context.getDatabasePath(databaseFileName)
         if (dbFile.exists()) {
             isInstalled = true
-            return@withContext dbFile.absolutePath
+            alignRoomVersion(dbFile)
+            return dbFile.absolutePath
         }
 
-        // Ensure parent directory exists
         dbFile.parentFile?.mkdirs()
 
         try {
-            context.assets.open(assetFileName).use { inputStream ->
-                GZIPInputStream(inputStream).use { gzipStream ->
-                    FileOutputStream(dbFile).use { outputStream ->
-                        val buffer = ByteArray(8192)
-                        var length: Int
-                        while (gzipStream.read(buffer).also { length = it } > 0) {
-                            outputStream.write(buffer, 0, length)
-                        }
-                    }
-                }
-            }
+            installFromAsset(dbFile)
+            alignRoomVersion(dbFile)
             isInstalled = true
         } catch (e: Exception) {
             e.printStackTrace()
             throw e
         }
-        dbFile.absolutePath
+        return dbFile.absolutePath
+    }
+
+    private fun installFromAsset(dbFile: File) {
+        context.assets.open(assetFileName).use { inputStream ->
+            GZIPInputStream(inputStream).use { gzipStream ->
+                FileOutputStream(dbFile).use { outputStream ->
+                    val buffer = ByteArray(8192)
+                    var length: Int
+                    while (gzipStream.read(buffer).also { length = it } > 0) {
+                        outputStream.write(buffer, 0, length)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun alignRoomVersion(dbFile: File) {
+        SQLiteDatabase.openDatabase(
+            dbFile.absolutePath,
+            null,
+            SQLiteDatabase.OPEN_READWRITE
+        ).use { database ->
+            if (database.version < ROOM_DATABASE_VERSION) {
+                database.version = ROOM_DATABASE_VERSION
+            }
+        }
     }
 }

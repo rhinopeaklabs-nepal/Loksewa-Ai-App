@@ -1,5 +1,5 @@
-import "dotenv/config";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import "./env";
+import { createHash, createHmac, pbkdf2Sync, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
@@ -77,11 +77,53 @@ type MockTest = DbRecord & {
   status: Status;
   question_ids: number[];
 };
+type MockAttemptStatus = "in_progress" | "submitted" | "expired";
+type MockAttempt = DbRecord & {
+  user_id: number;
+  mock_test_id: number;
+  started_at: string;
+  ends_at: string;
+  submitted_at: string | null;
+  status: MockAttemptStatus;
+  score: number;
+  correct_count: number;
+  wrong_count: number;
+  unanswered_count: number;
+  total_questions: number;
+  total_marks: number;
+};
+type MockAnswer = DbRecord & {
+  attempt_id: number;
+  question_id: number;
+  selected_option: "A" | "B" | "C" | "D" | null;
+  is_correct: boolean;
+  marks_awarded: number;
+  answered_at: string | null;
+};
 type User = DbRecord & { email: string; password_hash: string; full_name: string; role: UserRole; status: UserStatus; last_login_at: string | null };
 type Report = { id: number; question_id: number | null; scanned_text: string; report_type: string; message: string; contact: string; status: string; created_at: string };
 type ScraperSource = DbRecord & { name: string; start_url: string; allowed_domain: string; syllabus_category: string; max_depth: number; max_pages: number; refresh_minutes: number; status: "active" | "paused" | "archived"; last_crawled_at: string | null };
 type ScraperRun = { id: number; source_id: number | null; status: "running" | "completed" | "failed"; started_at: string; finished_at: string | null; pages_seen: number; pages_saved: number; pages_skipped: number; message: string };
 type ScrapedDocument = { id: number; source_id: number; syllabus_entry_id: number | null; url: string; title: string; content: string; content_hash: string; syllabus_category: string; extracted_at: string; last_seen_at: string };
+type PrepTopic = DbRecord & {
+  subject_id: string;
+  title: string;
+  content_beginner: string;
+  content_intermediate: string;
+  content_advanced: string;
+  revision_notes: string;
+  sort_order: number;
+};
+type PrepFlashcard = DbRecord & { topic_id: number; front: string; back: string };
+type TopicProgress = DbRecord & {
+  user_id: number;
+  topic_id: number;
+  completion_percentage: number;
+  questions_attempted: number;
+  questions_correct: number;
+  time_spent_minutes: number;
+  last_studied_at: string | null;
+};
 
 type NodeDb = {
   meta: { schema_version: string; data_version: number; next_id: Record<string, number> };
@@ -95,11 +137,16 @@ type NodeDb = {
   syllabus: Syllabus[];
   questions: Question[];
   mocks: MockTest[];
+  mock_attempts: MockAttempt[];
+  mock_answers: MockAnswer[];
   users: User[];
   reports: Report[];
   scraper_sources: ScraperSource[];
   scraper_runs: ScraperRun[];
   scraped_documents: ScrapedDocument[];
+  prep_topics: PrepTopic[];
+  prep_flashcards: PrepFlashcard[];
+  topic_progress: TopicProgress[];
 };
 
 type CollectionKey = Exclude<keyof NodeDb, "meta" | "sessions">;
@@ -110,18 +157,64 @@ const PROJECT_ROOT = resolve(process.cwd(), "..");
 const DB_PATH = resolve(process.env.NODE_BACKEND_DB_PATH ?? join(PROJECT_ROOT, "runtime", "node-backend-db.json"));
 const ADMIN_DIST = resolve(process.env.ADMIN_DIST_PATH ?? join(PROJECT_ROOT, "admin-dashboard", "dist"));
 const ADMIN_TOKEN = process.env.LOKSEWA_ADMIN_TOKEN ?? "dev-admin-token-change-me";
+const BOOTSTRAP_ADMIN_EMAIL = (process.env.LOKSEWA_BOOTSTRAP_ADMIN_EMAIL ?? "admin@loksewa.local").toLowerCase();
+const BOOTSTRAP_ADMIN_PASSWORD = process.env.LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD ?? "LoksewaAdmin@123";
 const SESSION_HOURS = Number(process.env.SESSION_TTL_HOURS ?? 168);
+const NODE_ENV = process.env.LOKSEWA_ENV ?? process.env.NODE_ENV ?? "development";
+const IS_PRODUCTION = NODE_ENV === "production";
+const DELTA_SIGNING_SECRET = process.env.LOKSEWA_DELTA_SIGNING_SECRET ?? "dev-delta-signing-secret-change-me";
+const CORS_ORIGINS = (process.env.LOKSEWA_CORS_ORIGINS ?? process.env.CORS_ORIGINS ?? "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:8000")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const SCRAPER_USER_AGENT = process.env.LOKSEWA_SCRAPER_USER_AGENT ?? "LoksewaAIStudyBot/0.1 (+https://localhost; educational syllabus updater)";
+const ENABLE_SCRAPER = (process.env.LOKSEWA_SCRAPER_ENABLED ?? "true").toLowerCase() !== "false";
+const PASSWORD_ITERATIONS = 210_000;
 
 function now(): string {
   return new Date().toISOString();
+}
+
+function passwordHash(email: string, password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const digest = pbkdf2Sync(`${email.toLowerCase()}::${password}`, salt, PASSWORD_ITERATIONS, 32, "sha256").toString("hex");
+  return `pbkdf2_sha256$${PASSWORD_ITERATIONS}$${salt}$${digest}`;
 }
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function passwordHash(email: string, password: string): string {
-  return sha256(`${email.toLowerCase()}::${password}`);
+function safeEqual(left: string, right: string): boolean {
+  const a = Buffer.from(left);
+  const b = Buffer.from(right);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function verifyPassword(email: string, password: string, storedHash: string): boolean {
+  const parts = storedHash.split("$");
+  if (parts.length === 4 && parts[0] === "pbkdf2_sha256") {
+    const iterations = Number(parts[1]);
+    const digest = pbkdf2Sync(`${email.toLowerCase()}::${password}`, parts[2], iterations, 32, "sha256").toString("hex");
+    return safeEqual(digest, parts[3]);
+  }
+  return safeEqual(sha256(`${email.toLowerCase()}::${password}`), storedHash);
+}
+
+function signPayload(payload: unknown): string {
+  return createHmac("sha256", DELTA_SIGNING_SECRET).update(JSON.stringify(payload)).digest("hex");
+}
+
+function validateRuntimeConfig(): void {
+  if (!IS_PRODUCTION) return;
+  const insecure = [];
+  if (!ADMIN_TOKEN || ADMIN_TOKEN === "dev-admin-token-change-me") insecure.push("LOKSEWA_ADMIN_TOKEN");
+  if (!DELTA_SIGNING_SECRET || DELTA_SIGNING_SECRET === "dev-delta-signing-secret-change-me") insecure.push("LOKSEWA_DELTA_SIGNING_SECRET");
+  if (!BOOTSTRAP_ADMIN_PASSWORD || BOOTSTRAP_ADMIN_PASSWORD === "LoksewaAdmin@123") insecure.push("LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD");
+  if (CORS_ORIGINS.includes("*")) insecure.push("LOKSEWA_CORS_ORIGINS");
+  if (insecure.length) {
+    throw new Error(`Production Node backend requires secure configuration for: ${insecure.join(", ")}`);
+  }
 }
 
 function idFor(db: NodeDb, bucket: CollectionKey): number {
@@ -154,11 +247,16 @@ function defaultDb(): NodeDb {
     syllabus: [],
     questions: [],
     mocks: [],
+    mock_attempts: [],
+    mock_answers: [],
     users: [],
     reports: [],
     scraper_sources: [],
     scraper_runs: [],
-    scraped_documents: []
+    scraped_documents: [],
+    prep_topics: [],
+    prep_flashcards: [],
+    topic_progress: []
   };
 
   const subjects = [
@@ -212,17 +310,106 @@ function defaultDb(): NodeDb {
     ["admin", "Policy cycle order", "Evaluation placed before implementation"]
   ].map((row, index) => withTimestamps(db, "mistakes", { course_id: courseId(row[0]), title: row[1], reason: row[2], sort_order: index + 1 }));
 
-  db.questions = [withTimestamps(db, "questions", {
-    public_id: "q_sample_constitution",
-    question_text: "How many fundamental rights are guaranteed by the Constitution of Nepal?",
-    option_a: "21", option_b: "31", option_c: "35", option_d: "45", correct_option: "B" as const,
-    explanation: "Part 3 of the Constitution of Nepal guarantees 31 fundamental rights.",
-    syllabus_category: "Constitution and Law", source_name: "Internal seed", source_url: "", source_license: "Internal sample", source_year: null, source_page: null,
-    exam_level: "General", exam_type: "MCQ", language: "en", verification_status: "verified" as const, verifier: "node-seed", verified_at: stamp, deleted_at: null, data_version: 1
-  })];
+  const questionSeeds = [
+    {
+      public_id: "q_sample_constitution",
+      question_text: "How many fundamental rights are guaranteed by the Constitution of Nepal?",
+      option_a: "21", option_b: "31", option_c: "35", option_d: "45", correct_option: "B" as const,
+      explanation: "Part 3 of the Constitution of Nepal guarantees 31 fundamental rights.",
+      syllabus_category: "Constitution", exam_level: "General", exam_type: "MCQ"
+    },
+    {
+      public_id: "q_sample_psc",
+      question_text: "Which article of the Constitution of Nepal establishes the Public Service Commission?",
+      option_a: "Article 240", option_b: "Article 242", option_c: "Article 244", option_d: "Article 246", correct_option: "B" as const,
+      explanation: "Article 242 provides for the Public Service Commission.",
+      syllabus_category: "Constitution", exam_level: "Officer", exam_type: "MCQ"
+    },
+    {
+      public_id: "q_sample_everest",
+      question_text: "What is the official height of Mount Everest announced jointly by Nepal and China?",
+      option_a: "8,848 m", option_b: "8,848.86 m", option_c: "8,850 m", option_d: "8,846 m", correct_option: "B" as const,
+      explanation: "The official height announced in 2020 is 8,848.86 meters.",
+      syllabus_category: "Geography", exam_level: "General", exam_type: "MCQ"
+    },
+    {
+      public_id: "q_sample_reasoning",
+      question_text: "In a number series, what should you check first before complex calculation?",
+      option_a: "Guess from longest option", option_b: "Difference, ratio, alternating pattern, and position logic", option_c: "Always multiply by two", option_d: "Skip the question", correct_option: "B" as const,
+      explanation: "A stable pattern checklist saves time in reasoning questions.",
+      syllabus_category: "IQ and Reasoning", exam_level: "General", exam_type: "MCQ"
+    }
+  ];
+  db.questions = questionSeeds.map((question) => withTimestamps(db, "questions", {
+    ...question,
+    source_name: "Internal seed",
+    source_url: "",
+    source_license: "Internal sample",
+    source_year: null,
+    source_page: null,
+    language: "en",
+    verification_status: "verified" as const,
+    verifier: "node-seed",
+    verified_at: stamp,
+    deleted_at: null,
+    data_version: 1
+  }));
 
-  db.mocks = [withTimestamps(db, "mocks", { title: "Loksewa General Practice", description: "Starter practice set from the Node backend.", exam_level: "General", exam_type: "MCQ", syllabus_category: "Mixed", duration_minutes: 30, total_questions: 1, marks_per_correct: 1, negative_marking_enabled: true, negative_marks_per_wrong: 0.2, status: "published" as Status, question_ids: [1] })];
-  db.users = [withTimestamps(db, "users", { email: "admin@loksewa.local", password_hash: passwordHash("admin@loksewa.local", "LoksewaAdmin@123"), full_name: "Loksewa Admin", role: "admin" as UserRole, status: "active" as UserStatus, last_login_at: null })];
+  db.mocks = [withTimestamps(db, "mocks", { title: "Loksewa General Practice", description: "Starter practice set from the Node backend.", exam_level: "General", exam_type: "MCQ", syllabus_category: "Mixed", duration_minutes: 30, total_questions: db.questions.length, marks_per_correct: 1, negative_marking_enabled: true, negative_marks_per_wrong: 0.2, status: "published" as Status, question_ids: db.questions.map((question) => question.id) })];
+  const prepTopicSeeds = [
+    {
+      subject_id: "Constitution",
+      title: "Introduction to the Constitution of Nepal",
+      content_beginner: "The Constitution of Nepal is the supreme law. It was promulgated on 20 September 2015.",
+      content_intermediate: "The Constitution contains 35 Parts, 308 Articles, and 9 Schedules. It defines Nepal as a federal democratic republic.",
+      content_advanced: "Loksewa questions often test dates, structure, article numbers, and the practical meaning of federalism, secularism, inclusion, and constitutional bodies.",
+      revision_notes: "- Promulgation: 2072 Ashoj 3\n- Structure: 35 Parts, 308 Articles, 9 Schedules\n- Governance: federal, provincial, local",
+      flashcards: [
+        ["When was the current Constitution of Nepal promulgated?", "2072 Ashoj 3, September 20, 2015"],
+        ["How many Articles are in the Constitution of Nepal?", "308 Articles"]
+      ]
+    },
+    {
+      subject_id: "Constitution",
+      title: "Fundamental Rights",
+      content_beginner: "Fundamental Rights are basic rights guaranteed by Part 3 of the Constitution.",
+      content_intermediate: "There are 31 Fundamental Rights under Articles 16 to 46.",
+      content_advanced: "Remember article ranges, rights with similar wording, and Article 46 for constitutional remedies.",
+      revision_notes: "- Part 3\n- Articles 16 to 46\n- 31 rights",
+      flashcards: [
+        ["How many Fundamental Rights are guaranteed?", "31"],
+        ["Which article gives constitutional remedies?", "Article 46"]
+      ]
+    },
+    {
+      subject_id: "Geography",
+      title: "Mountains and Peaks of Nepal",
+      content_beginner: "Nepal is home to Mount Everest and many Himalayan peaks.",
+      content_intermediate: "Nepal has 8 of the world's 14 peaks above 8,000 meters.",
+      content_advanced: "Questions usually compare peak height, mountain range, district, and first ascent details.",
+      revision_notes: "- Everest: 8,848.86m\n- Nepal has 8 peaks above 8,000m\n- Mahalangur range includes Everest",
+      flashcards: [
+        ["What is Everest's official height?", "8,848.86 meters"],
+        ["How many 8,000m+ peaks are in Nepal?", "8"]
+      ]
+    }
+  ];
+  prepTopicSeeds.forEach((topic, index) => {
+    const created = withTimestamps(db, "prep_topics", {
+      subject_id: topic.subject_id,
+      title: topic.title,
+      content_beginner: topic.content_beginner,
+      content_intermediate: topic.content_intermediate,
+      content_advanced: topic.content_advanced,
+      revision_notes: topic.revision_notes,
+      sort_order: index + 1
+    });
+    db.prep_topics.push(created);
+    topic.flashcards.forEach(([front, back]) => {
+      db.prep_flashcards.push(withTimestamps(db, "prep_flashcards", { topic_id: created.id, front, back }));
+    });
+  });
+  db.users = [withTimestamps(db, "users", { email: BOOTSTRAP_ADMIN_EMAIL, password_hash: passwordHash(BOOTSTRAP_ADMIN_EMAIL, BOOTSTRAP_ADMIN_PASSWORD), full_name: "Loksewa Admin", role: "admin" as UserRole, status: "active" as UserStatus, last_login_at: null })];
   db.scraper_sources = [withTimestamps(db, "scraper_sources", { name: "psc.gov.np live updates", start_url: "https://www.psc.gov.np", allowed_domain: "www.psc.gov.np", syllabus_category: "", max_depth: 1, max_pages: 25, refresh_minutes: 60, status: "active" as const, last_crawled_at: null })];
   return db;
 }
@@ -233,7 +420,8 @@ function loadDb(): NodeDb {
     saveDb(db);
     return db;
   }
-  return JSON.parse(readFileSync(DB_PATH, "utf-8")) as NodeDb;
+  const db = JSON.parse(readFileSync(DB_PATH, "utf-8")) as Partial<NodeDb>;
+  return normalizeDb(db);
 }
 
 function saveDb(db: NodeDb): void {
@@ -241,6 +429,26 @@ function saveDb(db: NodeDb): void {
   writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
 }
 
+function normalizeDb(input: Partial<NodeDb>): NodeDb {
+  const seeded = defaultDb();
+  const db = { ...seeded, ...input, meta: { ...seeded.meta, ...input.meta } } as NodeDb;
+  const collectionKeys: CollectionKey[] = [
+    "subjects", "courses", "modules", "tasks", "course_questions", "mistakes", "syllabus", "questions", "mocks",
+    "mock_attempts", "mock_answers", "users", "reports", "scraper_sources", "scraper_runs", "scraped_documents",
+    "prep_topics", "prep_flashcards", "topic_progress"
+  ];
+  for (const key of collectionKeys) {
+    if (!Array.isArray(db[key])) {
+      (db as Record<string, unknown>)[key] = seeded[key];
+    }
+    const maxId = Math.max(0, ...(db[key] as Array<{ id?: number }>).map((item) => Number(item.id) || 0));
+    db.meta.next_id[key] = Math.max(db.meta.next_id[key] ?? 1, maxId + 1);
+  }
+  db.sessions = input.sessions ?? {};
+  return db;
+}
+
+validateRuntimeConfig();
 const db = loadDb();
 
 function publicUser(user: User) {
@@ -318,6 +526,103 @@ function createItem<T extends object>(bucket: CollectionKey, payload: T) {
   return item;
 }
 
+function requireUser(request: FastifyRequest, reply: FastifyReply): User | null {
+  const user = currentUser(request);
+  if (!user || user.status !== "active") {
+    reply.status(401).send({ detail: "Authentication required" });
+    return null;
+  }
+  return user;
+}
+
+function searchQuestions(queryText: string, limit = 3) {
+  const terms = queryText.toLowerCase().split(/\s+/).filter((term) => term.length > 1);
+  return db.questions
+    .filter((item) => !item.deleted_at && item.verification_status === "verified")
+    .map((question) => {
+      const haystack = `${question.question_text} ${question.syllabus_category} ${question.explanation}`.toLowerCase();
+      const score = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0);
+      return { question, score };
+    })
+    .filter((item) => item.score > 0 || !terms.length)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => ({ question: item.question, bm25_score: item.score || 1, similarity: terms.length ? item.score / terms.length : 1 }));
+}
+
+function attemptQuestions(mock: MockTest): Question[] {
+  const explicit = mock.question_ids
+    .map((id) => db.questions.find((question) => question.id === id && !question.deleted_at))
+    .filter((question): question is Question => Boolean(question));
+  return (explicit.length ? explicit : db.questions.filter((question) => !question.deleted_at && question.verification_status === "verified"))
+    .slice(0, mock.total_questions || 50);
+}
+
+function mockAttemptOut(attempt: MockAttempt) {
+  const mock = db.mocks.find((item) => item.id === attempt.mock_test_id);
+  const questions = mock ? attemptQuestions(mock) : [];
+  const payload = {
+    ...attempt,
+    mock_test: mock,
+    mockTest: mock,
+    questions: questions.map((question, index) => ({
+      id: question.id,
+      position: index + 1,
+      question_text: question.question_text,
+      option_a: question.option_a,
+      option_b: question.option_b,
+      option_c: question.option_c,
+      option_d: question.option_d,
+      syllabus_category: question.syllabus_category,
+      correct_option: question.correct_option,
+      explanation: question.explanation
+    }))
+  };
+  return payload;
+}
+
+function recalculateAttempt(attempt: MockAttempt): MockAttempt {
+  const mock = db.mocks.find((item) => item.id === attempt.mock_test_id);
+  if (!mock) return attempt;
+  const questions = attemptQuestions(mock);
+  const answers = db.mock_answers.filter((answer) => answer.attempt_id === attempt.id);
+  let correct = 0;
+  let wrong = 0;
+  for (const answer of answers) {
+    if (!answer.selected_option) continue;
+    if (answer.is_correct) correct += 1;
+    else wrong += 1;
+  }
+  attempt.correct_count = correct;
+  attempt.wrong_count = wrong;
+  attempt.unanswered_count = Math.max(0, questions.length - answers.filter((answer) => answer.selected_option).length);
+  attempt.score = correct * mock.marks_per_correct - wrong * (mock.negative_marking_enabled ? mock.negative_marks_per_wrong : 0);
+  attempt.total_questions = questions.length;
+  attempt.total_marks = questions.length * mock.marks_per_correct;
+  attempt.updated_at = now();
+  return attempt;
+}
+
+function userStats(userId: number) {
+  const attempts = db.mock_attempts.filter((attempt) => attempt.user_id === userId);
+  const completed = attempts.filter((attempt) => attempt.status === "submitted");
+  const percentages = completed.map((attempt) => attempt.total_marks ? (attempt.score / attempt.total_marks) * 100 : 0);
+  return {
+    total_mocks_taken: attempts.length,
+    total_mocks_completed: completed.length,
+    average_score: percentages.length ? percentages.reduce((sum, value) => sum + value, 0) / percentages.length : 0,
+    correct_rate: completed.length ? (completed.reduce((sum, attempt) => sum + attempt.correct_count, 0) / Math.max(1, completed.reduce((sum, attempt) => sum + attempt.total_questions, 0))) * 100 : 0,
+    total_questions_answered: completed.reduce((sum, attempt) => sum + attempt.correct_count + attempt.wrong_count, 0),
+    best_score: percentages.length ? Math.max(...percentages) : 0,
+    categories_studied: [...new Set(db.questions.map((question) => question.syllabus_category).filter(Boolean))]
+  };
+}
+
+function topicOut(topic: PrepTopic, userId: number) {
+  const progress = db.topic_progress.find((item) => item.topic_id === topic.id && item.user_id === userId);
+  return { ...topic, completion_percentage: progress?.completion_percentage ?? 0 };
+}
+
 async function runScraper(sourceId?: number, maxPages?: number): Promise<ScraperRun[]> {
   const sources = db.scraper_sources.filter((source) => source.status === "active" && (!sourceId || source.id === sourceId));
   const runs: ScraperRun[] = [];
@@ -326,7 +631,19 @@ async function runScraper(sourceId?: number, maxPages?: number): Promise<Scraper
     const run: ScraperRun = { id: idFor(db, "scraper_runs"), source_id: source.id, status: "running", started_at: started, finished_at: null, pages_seen: 0, pages_saved: 0, pages_skipped: 0, message: "" };
     db.scraper_runs.push(run);
     try {
-      const response = await fetch(source.start_url, { headers: { "User-Agent": "LoksewaAIStudyBot/0.1" } });
+      const parsed = new URL(source.start_url);
+      const allowed = (source.allowed_domain || parsed.hostname).toLowerCase().replace(/^www\./, "");
+      const current = parsed.hostname.toLowerCase().replace(/^www\./, "");
+      if (current !== allowed && !current.endsWith(`.${allowed}`)) {
+        throw new Error(`Blocked scraper source outside allowed domain: ${parsed.hostname}`);
+      }
+      if ((maxPages ?? source.max_pages) < 1) {
+        throw new Error("Scraper max_pages must be at least 1");
+      }
+      const response = await fetch(source.start_url, {
+        headers: { "User-Agent": SCRAPER_USER_AGENT },
+        signal: AbortSignal.timeout(Number(process.env.LOKSEWA_SCRAPER_REQUEST_TIMEOUT_MS ?? 12_000))
+      });
       run.pages_seen = 1;
       const html = await response.text();
       const text = html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -357,10 +674,16 @@ async function runScraper(sourceId?: number, maxPages?: number): Promise<Scraper
 }
 
 export async function buildApp(): Promise<FastifyInstance> {
+  validateRuntimeConfig();
   const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "info" } });
-  await app.register(cors, { origin: true, credentials: true });
-  await app.register(swagger, { openapi: { info: { title: "Loksewa AI Node Backend", version: "1.0.0" } } });
-  await app.register(swaggerUi, { routePrefix: "/docs" });
+  await app.register(cors, {
+    origin: IS_PRODUCTION ? CORS_ORIGINS : true,
+    credentials: true
+  });
+  if (!IS_PRODUCTION) {
+    await app.register(swagger, { openapi: { info: { title: "Loksewa AI Node Backend", version: "1.0.0" } } });
+    await app.register(swaggerUi, { routePrefix: "/docs" });
+  }
 
   app.get("/healthz", async () => ({ status: "ok", runtime: "node", service: "loksewa-ai-fullstack" }));
   app.get("/v1/metadata", async () => ({ schema_version: db.meta.schema_version, data_version: String(db.meta.data_version), database_kind: "node_json_fullstack" }));
@@ -368,8 +691,13 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.post("/v1/auth/login", async (request, reply) => {
     const body = request.body as { email?: string; password?: string; client_type?: string };
     const email = (body.email ?? "").toLowerCase();
-    const user = db.users.find((item) => item.email.toLowerCase() === email && item.password_hash === passwordHash(email, body.password ?? ""));
+    const user = db.users.find((item) => item.email.toLowerCase() === email);
+    if (user && verifyPassword(email, body.password ?? "", user.password_hash) && !user.password_hash.startsWith("pbkdf2_sha256$")) {
+      user.password_hash = passwordHash(email, body.password ?? "");
+    }
     if (!user || user.status !== "active") return reply.status(401).send({ detail: "Invalid credentials" });
+    if (!verifyPassword(email, body.password ?? "", user.password_hash)) return reply.status(401).send({ detail: "Invalid credentials" });
+    if (body.client_type === "admin" && user.role !== "admin") return reply.status(403).send({ detail: "Admin account required" });
     user.last_login_at = now();
     user.updated_at = now();
     const token = tokenFor(user);
@@ -413,15 +741,162 @@ export async function buildApp(): Promise<FastifyInstance> {
     const question = db.questions.find((item) => item.id === Number((request.params as { id: string }).id));
     return question ?? reply.status(404).send({ detail: "Question not found" });
   });
+  app.get("/v1/questions/:id/ai-lesson", async (request, reply) => {
+    const question = db.questions.find((item) => item.id === Number((request.params as { id: string }).id));
+    if (!question) return reply.status(404).send({ detail: "Question not found" });
+    const correctText = question[`option_${question.correct_option.toLowerCase()}` as keyof Question];
+    return {
+      lesson_simple: `The verified answer is option ${question.correct_option}: ${correctText}. ${question.explanation}`,
+      lesson_detailed: `Read the question carefully, identify the syllabus area (${question.syllabus_category}), eliminate unrelated options, then match the exact constitutional or factual clue. ${question.explanation}`,
+      exam_notes: `Exam pattern: this topic often repeats with changed wording. Store the key fact and practice one near-transfer question.`,
+      mnemonic: `Remember: ${question.syllabus_category} first, keyword second, exact option last.`,
+      flashcards: [
+        { front: question.question_text, back: `Option ${question.correct_option}: ${correctText}` },
+        { front: `Why is option ${question.correct_option} correct?`, back: question.explanation }
+      ],
+      related_mcqs: searchQuestions(question.syllabus_category, 3).map((match) => match.question)
+    };
+  });
   app.get("/v1/categories", async () => [...new Set(db.questions.map((item) => item.syllabus_category).filter(Boolean))]);
   app.post("/v1/search", async (request) => {
     const body = request.body as { query?: string; limit?: number };
-    const query = (body.query ?? "").toLowerCase();
-    const matches = db.questions.filter((item) => item.question_text.toLowerCase().includes(query)).slice(0, body.limit ?? 3).map((question) => ({ question, bm25_score: 1, similarity: 1 }));
+    const matches = searchQuestions(body.query ?? "", body.limit ?? 3);
     return { answer_source: matches.length ? "verified_db" : "uncertain", threshold_reason: "Node full-stack search", query: body.query ?? "", matches };
   });
 
   app.get("/v1/mock-tests", async () => db.mocks.filter((item) => item.status === "published"));
+  app.get("/v1/mock-tests/:id", async (request, reply) => {
+    const mock = db.mocks.find((item) => item.id === Number((request.params as { id: string }).id));
+    return mock ?? reply.status(404).send({ detail: "Mock test not found" });
+  });
+  app.post("/v1/mock-tests/:id/start", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return reply;
+    const mock = db.mocks.find((item) => item.id === Number((request.params as { id: string }).id) && item.status === "published");
+    if (!mock) return reply.status(404).send({ detail: "Mock test not found" });
+    const questions = attemptQuestions(mock);
+    const stamp = now();
+    const attempt = createItem("mock_attempts", {
+      user_id: user.id,
+      mock_test_id: mock.id,
+      started_at: stamp,
+      ends_at: new Date(Date.now() + mock.duration_minutes * 60 * 1000).toISOString(),
+      submitted_at: null,
+      status: "in_progress" as MockAttemptStatus,
+      score: 0,
+      correct_count: 0,
+      wrong_count: 0,
+      unanswered_count: questions.length,
+      total_questions: questions.length,
+      total_marks: questions.length * mock.marks_per_correct
+    }) as MockAttempt;
+    return reply.status(201).send(mockAttemptOut(attempt));
+  });
+  app.get("/v1/mock-attempts/:id", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return reply;
+    const attempt = db.mock_attempts.find((item) => item.id === Number((request.params as { id: string }).id) && item.user_id === user.id);
+    return attempt ? mockAttemptOut(attempt) : reply.status(404).send({ detail: "Attempt not found" });
+  });
+  async function answerAttempt(request: FastifyRequest, reply: FastifyReply) {
+    const user = requireUser(request, reply);
+    if (!user) return reply;
+    const attempt = db.mock_attempts.find((item) => item.id === Number((request.params as { id: string }).id) && item.user_id === user.id);
+    if (!attempt || attempt.status !== "in_progress") return reply.status(404).send({ detail: "Active attempt not found" });
+    const body = request.body as { question_id?: number; selected_option?: "A" | "B" | "C" | "D" };
+    const question = db.questions.find((item) => item.id === Number(body.question_id));
+    if (!question || !body.selected_option) return reply.status(400).send({ detail: "question_id and selected_option are required" });
+    const mock = db.mocks.find((item) => item.id === attempt.mock_test_id);
+    const existing = db.mock_answers.find((item) => item.attempt_id === attempt.id && item.question_id === question.id);
+    const isCorrect = question.correct_option === body.selected_option;
+    const marks = isCorrect ? (mock?.marks_per_correct ?? 1) : -(mock?.negative_marking_enabled ? mock.negative_marks_per_wrong : 0);
+    if (existing) {
+      Object.assign(existing, { selected_option: body.selected_option, is_correct: isCorrect, marks_awarded: marks, answered_at: now(), updated_at: now() });
+    } else {
+      db.mock_answers.push(withTimestamps(db, "mock_answers", { attempt_id: attempt.id, question_id: question.id, selected_option: body.selected_option, is_correct: isCorrect, marks_awarded: marks, answered_at: now() }));
+    }
+    recalculateAttempt(attempt);
+    saveDb(db);
+    return mockAttemptOut(attempt);
+  }
+  app.post("/v1/mock-attempts/:id/answers", answerAttempt);
+  app.post("/v1/mock-tests/attempts/:id/answer", answerAttempt);
+  async function submitAttempt(request: FastifyRequest, reply: FastifyReply) {
+    const user = requireUser(request, reply);
+    if (!user) return reply;
+    const attempt = db.mock_attempts.find((item) => item.id === Number((request.params as { id: string }).id) && item.user_id === user.id);
+    if (!attempt) return reply.status(404).send({ detail: "Attempt not found" });
+    recalculateAttempt(attempt);
+    attempt.status = "submitted";
+    attempt.submitted_at = now();
+    attempt.updated_at = now();
+    saveDb(db);
+    const payload = mockAttemptOut(attempt);
+    return { attempt: payload, answers: db.mock_answers.filter((answer) => answer.attempt_id === attempt.id) };
+  }
+  app.post("/v1/mock-attempts/:id/submit", submitAttempt);
+  app.post("/v1/mock-tests/attempts/:id/submit", submitAttempt);
+  app.get("/v1/stats/me", async (request, reply) => {
+    const user = requireUser(request, reply);
+    return user ? userStats(user.id) : reply;
+  });
+  app.get("/v1/users/me/stats", async (request, reply) => {
+    const user = requireUser(request, reply);
+    return user ? userStats(user.id) : reply;
+  });
+  app.get("/v1/preparation/subjects", async () => [...new Set(db.prep_topics.map((topic) => topic.subject_id))]);
+  app.get("/v1/preparation/subjects/:subjectId/topics", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return reply;
+    const subjectId = decodeURIComponent((request.params as { subjectId: string }).subjectId);
+    return db.prep_topics.filter((topic) => topic.subject_id === subjectId).sort((a, b) => a.sort_order - b.sort_order).map((topic) => topicOut(topic, user.id));
+  });
+  app.get("/v1/preparation/topics/:id", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return reply;
+    const topic = db.prep_topics.find((item) => item.id === Number((request.params as { id: string }).id));
+    if (!topic) return reply.status(404).send({ detail: "Topic not found" });
+    return {
+      topic: topicOut(topic, user.id),
+      completion_percentage: topicOut(topic, user.id).completion_percentage,
+      flashcards: db.prep_flashcards.filter((card) => card.topic_id === topic.id),
+      questions: db.questions.filter((question) => question.syllabus_category === topic.subject_id && !question.deleted_at).slice(0, 5)
+    };
+  });
+  app.post("/v1/preparation/topics/:id/progress", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return reply;
+    const topicId = Number((request.params as { id: string }).id);
+    const body = request.body as { completion_percentage?: number };
+    const existing = db.topic_progress.find((item) => item.user_id === user.id && item.topic_id === topicId);
+    if (existing) {
+      existing.completion_percentage = Math.max(0, Math.min(100, Number(body.completion_percentage ?? 0)));
+      existing.last_studied_at = now();
+      existing.updated_at = now();
+    } else {
+      db.topic_progress.push(withTimestamps(db, "topic_progress", { user_id: user.id, topic_id: topicId, completion_percentage: Math.max(0, Math.min(100, Number(body.completion_percentage ?? 0))), questions_attempted: 0, questions_correct: 0, time_spent_minutes: 0, last_studied_at: now() }));
+    }
+    saveDb(db);
+    return reply.status(204).send();
+  });
+  app.post("/v1/ai-tutor/ask", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return reply;
+    const body = request.body as { query?: string };
+    const matches = searchQuestions(body.query ?? "", 3);
+    const citations = matches.map((match) => ({ source_type: "question", source_name: match.question.source_name, title: match.question.question_text, id: match.question.id }));
+    const answer = matches.length
+      ? `I found this in the verified question bank: ${matches[0].question.explanation}`
+      : "I could not find a verified match yet. Add the topic in the admin syllabus, then rerun scraper or create verified MCQs.";
+    return { answer, citations, confidence: matches.length ? "verified_db" : "uncertain" };
+  });
+  app.get("/v1/sync/delta", async (request) => {
+    const query = request.query as { since_version?: string };
+    const since = Number(query.since_version ?? 0);
+    const changes = db.questions.filter((question) => question.data_version > since);
+    const payload = { since_version: since, data_version: db.meta.data_version, questions: changes, deleted_question_ids: [] };
+    return { ...payload, signature: signPayload(payload) };
+  });
   app.post("/v1/reports", async (request, reply) => {
     const body = request.body as Partial<Report>;
     const report: Report = { id: idFor(db, "reports"), question_id: body.question_id ?? null, scanned_text: body.scanned_text ?? "", report_type: body.report_type ?? "other", message: body.message ?? "", contact: body.contact ?? "", status: "open", created_at: now() };
@@ -432,7 +907,8 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   app.addHook("preHandler", async (request, reply) => {
     if (request.url.startsWith("/v1/admin/")) {
-      requireAdmin(request, reply);
+      const admin = requireAdmin(request, reply);
+      if (!admin) return reply;
     }
   });
 
@@ -471,8 +947,42 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.delete("/v1/admin/course-mistakes/:id", async (request, reply) => { const id = Number((request.params as { id: string }).id); db.mistakes = db.mistakes.filter((item) => item.id !== id); saveDb(db); return reply.status(204).send(); });
 
   app.get("/v1/admin/questions", async () => db.questions);
+  app.get("/v1/admin/questions/:id", async (request, reply) => db.questions.find((item) => item.id === Number((request.params as { id: string }).id)) ?? reply.status(404).send({ detail: "Question not found" }));
   app.post("/v1/admin/questions", async (request, reply) => reply.status(201).send(createItem("questions", { public_id: `q_${randomUUID()}`, data_version: ++db.meta.data_version, ...(request.body as object) })));
   app.put("/v1/admin/questions/:id", async (request, reply) => upsertById(db.questions, Number((request.params as { id: string }).id), { ...(request.body as object), data_version: ++db.meta.data_version } as Partial<Question>) ?? reply.status(404).send({ detail: "Question not found" }));
+  app.post("/v1/admin/questions/:id/review", async (request, reply) => {
+    const body = request.body as Partial<Question>;
+    const question = upsertById(db.questions, Number((request.params as { id: string }).id), { ...body, data_version: ++db.meta.data_version, verified_at: body.verification_status === "verified" ? now() : body.verified_at } as Partial<Question>);
+    return question ?? reply.status(404).send({ detail: "Question not found" });
+  });
+  app.post("/v1/admin/import-batch", async (request, reply) => {
+    const body = request.body as { questions?: Array<Partial<Question>>; items?: Array<Partial<Question>>; batch_name?: string };
+    const imported = (body.questions ?? body.items ?? []).map((item) => createItem("questions", {
+      public_id: item.public_id ?? `q_${randomUUID()}`,
+      question_text: item.question_text ?? "",
+      option_a: item.option_a ?? "",
+      option_b: item.option_b ?? "",
+      option_c: item.option_c ?? "",
+      option_d: item.option_d ?? "",
+      correct_option: item.correct_option ?? "A",
+      explanation: item.explanation ?? "",
+      syllabus_category: item.syllabus_category ?? "",
+      source_name: item.source_name ?? body.batch_name ?? "Admin import",
+      source_url: item.source_url ?? "",
+      source_license: item.source_license ?? "",
+      source_year: item.source_year ?? null,
+      source_page: item.source_page ?? null,
+      exam_level: item.exam_level ?? "",
+      exam_type: item.exam_type ?? "",
+      language: item.language ?? "en",
+      verification_status: item.verification_status ?? "needs_review",
+      verifier: item.verifier ?? "",
+      verified_at: item.verified_at ?? null,
+      deleted_at: null,
+      data_version: ++db.meta.data_version
+    }));
+    return reply.status(201).send({ imported_count: imported.length, questions: imported });
+  });
   app.delete("/v1/admin/questions/:id", async (request, reply) => upsertById(db.questions, Number((request.params as { id: string }).id), { verification_status: "rejected", deleted_at: now() } as Partial<Question>) ? reply.status(204).send() : reply.status(404).send({ detail: "Question not found" }));
 
   app.get("/v1/admin/syllabus", async () => db.syllabus);
@@ -486,8 +996,22 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.delete("/v1/admin/mock-tests/:id", async (request, reply) => upsertById(db.mocks, Number((request.params as { id: string }).id), { status: "archived" } as Partial<MockTest>) ? reply.status(204).send() : reply.status(404).send({ detail: "Mock not found" }));
 
   app.get("/v1/admin/users", async () => db.users.map(publicUser));
-  app.post("/v1/admin/users", async (request, reply) => { const body = request.body as Partial<User> & { password?: string }; const email = (body.email ?? "").toLowerCase(); const user = createItem("users", { email, password_hash: passwordHash(email, body.password ?? "LoksewaAdmin@123"), full_name: body.full_name ?? "", role: body.role ?? "student", status: body.status ?? "active", last_login_at: null }) as User; return reply.status(201).send(publicUser(user)); });
-  app.put("/v1/admin/users/:id", async (request, reply) => { const body = request.body as Partial<User> & { password?: string }; const payload: Partial<User> = { ...body }; if (body.password && body.email) payload.password_hash = passwordHash(body.email, body.password); const user = upsertById(db.users, Number((request.params as { id: string }).id), payload); return user ? publicUser(user) : reply.status(404).send({ detail: "User not found" }); });
+  app.post("/v1/admin/users", async (request, reply) => {
+    const body = request.body as Partial<User> & { password?: string };
+    const email = (body.email ?? "").toLowerCase();
+    if (!email || !body.password) return reply.status(400).send({ detail: "Email and password are required for admin-created users" });
+    const user = createItem("users", { email, password_hash: passwordHash(email, body.password), full_name: body.full_name ?? "", role: body.role ?? "student", status: body.status ?? "active", last_login_at: null }) as User;
+    return reply.status(201).send(publicUser(user));
+  });
+  app.put("/v1/admin/users/:id", async (request, reply) => {
+    const body = request.body as Partial<User> & { password?: string };
+    const existing = db.users.find((item) => item.id === Number((request.params as { id: string }).id));
+    if (!existing) return reply.status(404).send({ detail: "User not found" });
+    const payload: Partial<User> = { ...body };
+    if (body.password) payload.password_hash = passwordHash((body.email ?? existing.email).toLowerCase(), body.password);
+    const user = upsertById(db.users, existing.id, payload);
+    return user ? publicUser(user) : reply.status(404).send({ detail: "User not found" });
+  });
   app.delete("/v1/admin/users/:id", async (request, reply) => { const id = Number((request.params as { id: string }).id); db.users = db.users.filter((item) => item.id !== id); saveDb(db); return reply.status(204).send(); });
 
   app.get("/v1/admin/reports", async () => db.reports);
@@ -502,6 +1026,21 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get("/v1/admin/scraper/runs", async () => db.scraper_runs);
   app.get("/v1/admin/scraper/documents", async () => db.scraped_documents);
 
+  app.get("/api/subjects", async () => db.subjects.filter((item) => item.status === "published").map((subject) => ({ ...subject, name: subject.title })));
+  app.get("/api/questions/search", async (request) => {
+    const query = request.query as { q?: string; limit?: string };
+    const matches = searchQuestions(query.q ?? "", Number(query.limit ?? 3));
+    return { answer_source: matches.length ? "verified_db" : "uncertain", matches };
+  });
+  app.get("/architecture", async (_request, reply) => {
+    const filePath = join(PROJECT_ROOT, "index.html");
+    return existsSync(filePath) ? sendFile(reply, filePath) : reply.status(404).send("Architecture page not found");
+  });
+  app.get("/architecture.md", async (_request, reply) => {
+    const filePath = join(PROJECT_ROOT, "ARCHITECTURE.md");
+    return existsSync(filePath) ? sendFile(reply, filePath) : reply.status(404).send("Architecture markdown not found");
+  });
+
   app.get("/", async (_request, reply) => reply.redirect("/dashboard/"));
   app.get("/admin", async (_request, reply) => reply.redirect("/dashboard/"));
   app.get("/dashboard", async (_request, reply) => reply.redirect("/dashboard/"));
@@ -514,9 +1053,12 @@ export async function buildApp(): Promise<FastifyInstance> {
     return sendFile(reply, filePath);
   });
 
-  setInterval(() => {
-    void runScraper().catch((error) => app.log.warn({ error }, "Background scraper skipped"));
-  }, Number(process.env.SCRAPER_INTERVAL_MS ?? 60 * 60 * 1000));
+  if (ENABLE_SCRAPER) {
+    const scraperTimer = setInterval(() => {
+      void runScraper().catch((error) => app.log.warn({ error }, "Background scraper skipped"));
+    }, Number(process.env.SCRAPER_INTERVAL_MS ?? 60 * 60 * 1000));
+    scraperTimer.unref?.();
+  }
 
   return app;
 }
