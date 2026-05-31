@@ -145,6 +145,10 @@ X-Admin-Token: <LOKSEWA_ADMIN_TOKEN>
 - `POST /v1/admin/questions/{id}/review`
 - `DELETE /v1/admin/questions/{id}`
 - `GET/POST/PUT/DELETE /v1/admin/syllabus`
+- `GET/POST/PUT/DELETE /v1/admin/scraper/sources`
+- `POST /v1/admin/scraper/run`
+- `GET /v1/admin/scraper/runs`
+- `GET /v1/admin/scraper/documents`
 - `GET/POST/PUT/DELETE /v1/admin/mock-tests`
 - `GET/POST/PUT/DELETE /v1/admin/users`
 - `GET/PUT/DELETE /v1/admin/reports`
@@ -158,3 +162,25 @@ X-Admin-Token: <LOKSEWA_ADMIN_TOKEN>
 - Use signed delta payloads for mobile sync.
 - Store only minimal report metadata; device IDs are SHA-256 hashed.
 - Do not ingest copyrighted/private data unless you have rights to redistribute it.
+
+## Realtime Syllabus Scraper
+
+The FastAPI runtime includes a source-based web updater for syllabus material. It respects `robots.txt` by default, caches extracted pages in memory and SQLite, maps each document to a syllabus category, and upserts the matching `syllabus_entries` record when the source content changes.
+
+Configuration:
+
+```powershell
+$env:LOKSEWA_SCRAPER_ENABLED="true"
+$env:LOKSEWA_SCRAPER_TARGET_URLS="https://www.psc.gov.np"
+$env:LOKSEWA_SCRAPER_REFRESH_INTERVAL_SECONDS="3600"
+$env:LOKSEWA_SCRAPER_MAX_PAGES_PER_SOURCE="25"
+```
+
+Manual run:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/v1/admin/scraper/run `
+  -H "X-Admin-Token: dev-admin-token-change-me" `
+  -H "Content-Type: application/json" `
+  -d "{\"source_id\":1,\"max_pages\":10}"
+```

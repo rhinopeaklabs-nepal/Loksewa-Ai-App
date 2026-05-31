@@ -1,7 +1,6 @@
 import { startApp } from "./app";
-import { logger } from "./core/utils/logger";
 
 startApp().catch((error: unknown) => {
-  logger.error({ error }, "Failed to start Loksewa AI backend");
+  console.error("Failed to start Loksewa AI Node backend", error);
   process.exit(1);
 });

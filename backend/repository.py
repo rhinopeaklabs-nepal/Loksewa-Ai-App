@@ -1,4 +1,5 @@
 import hashlib
+import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -11,9 +12,26 @@ from backend.models import (
     MockSubmitResponse,
     MockTestIn,
     MockTestOut,
+    CourseDetailOut,
+    CourseIn,
+    CourseOut,
+    CourseMistakeIn,
+    CourseMistakeOut,
+    CourseModuleIn,
+    CourseModuleOut,
+    CourseQuestionIn,
+    CourseQuestionOut,
+    CourseTaskIn,
+    CourseTaskOut,
     QuestionIn,
     QuestionOut,
     ReportOut,
+    ScrapedDocumentOut,
+    ScraperRunOut,
+    ScraperSourceIn,
+    ScraperSourceOut,
+    SubjectIn,
+    SubjectOut,
     SyllabusIn,
     SyllabusOut,
     UserCreate,
@@ -548,6 +566,1143 @@ def update_syllabus(connection: sqlite3.Connection, syllabus_id: int, payload: S
 def delete_syllabus(connection: sqlite3.Connection, syllabus_id: int) -> bool:
     cursor = connection.execute("DELETE FROM syllabus_entries WHERE id = ?", (syllabus_id,))
     return cursor.rowcount > 0
+
+
+def row_to_scraper_source(row: sqlite3.Row) -> ScraperSourceOut:
+    return ScraperSourceOut(
+        id=row["id"],
+        name=row["name"],
+        start_url=row["start_url"],
+        allowed_domain=row["allowed_domain"],
+        syllabus_category=row["syllabus_category"],
+        max_depth=row["max_depth"],
+        max_pages=row["max_pages"],
+        refresh_minutes=row["refresh_minutes"],
+        status=row["status"],
+        last_crawled_at=row["last_crawled_at"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def list_scraper_sources(
+    connection: sqlite3.Connection,
+    *,
+    status: str | None = None,
+    due_only: bool = False,
+    limit: int = 200,
+) -> list[ScraperSourceOut]:
+    clauses = ["1 = 1"]
+    values: list[object] = []
+    if status:
+        clauses.append("status = ?")
+        values.append(status)
+    if due_only:
+        clauses.append(
+            """
+            (
+                last_crawled_at IS NULL OR
+                datetime(last_crawled_at, '+' || refresh_minutes || ' minutes') <= CURRENT_TIMESTAMP
+            )
+            """
+        )
+    values.append(limit)
+    rows = connection.execute(
+        f"""
+        SELECT id, name, start_url, allowed_domain, syllabus_category, max_depth,
+               max_pages, refresh_minutes, status, last_crawled_at, created_at, updated_at
+        FROM web_scraper_sources
+        WHERE {" AND ".join(clauses)}
+        ORDER BY COALESCE(last_crawled_at, '1970-01-01') ASC, id ASC
+        LIMIT ?
+        """,
+        values,
+    ).fetchall()
+    return [row_to_scraper_source(row) for row in rows]
+
+
+def get_scraper_source(connection: sqlite3.Connection, source_id: int) -> ScraperSourceOut | None:
+    row = connection.execute(
+        """
+        SELECT id, name, start_url, allowed_domain, syllabus_category, max_depth,
+               max_pages, refresh_minutes, status, last_crawled_at, created_at, updated_at
+        FROM web_scraper_sources
+        WHERE id = ?
+        """,
+        (source_id,),
+    ).fetchone()
+    return None if row is None else row_to_scraper_source(row)
+
+
+def get_scraper_source_by_url(connection: sqlite3.Connection, start_url: str) -> ScraperSourceOut | None:
+    row = connection.execute(
+        """
+        SELECT id, name, start_url, allowed_domain, syllabus_category, max_depth,
+               max_pages, refresh_minutes, status, last_crawled_at, created_at, updated_at
+        FROM web_scraper_sources
+        WHERE start_url = ?
+        """,
+        (start_url,),
+    ).fetchone()
+    return None if row is None else row_to_scraper_source(row)
+
+
+def create_scraper_source(connection: sqlite3.Connection, payload: ScraperSourceIn) -> ScraperSourceOut:
+    cursor = connection.execute(
+        """
+        INSERT INTO web_scraper_sources (
+            name, start_url, allowed_domain, syllabus_category, max_depth, max_pages,
+            refresh_minutes, status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            payload.name,
+            payload.start_url,
+            payload.allowed_domain,
+            payload.syllabus_category,
+            payload.max_depth,
+            payload.max_pages,
+            payload.refresh_minutes,
+            payload.status,
+        ),
+    )
+    return get_scraper_source(connection, int(cursor.lastrowid))
+
+
+def update_scraper_source(
+    connection: sqlite3.Connection,
+    source_id: int,
+    payload: ScraperSourceIn,
+) -> ScraperSourceOut | None:
+    cursor = connection.execute(
+        """
+        UPDATE web_scraper_sources
+        SET name = ?, start_url = ?, allowed_domain = ?, syllabus_category = ?,
+            max_depth = ?, max_pages = ?, refresh_minutes = ?, status = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (
+            payload.name,
+            payload.start_url,
+            payload.allowed_domain,
+            payload.syllabus_category,
+            payload.max_depth,
+            payload.max_pages,
+            payload.refresh_minutes,
+            payload.status,
+            source_id,
+        ),
+    )
+    if cursor.rowcount == 0:
+        return None
+    return get_scraper_source(connection, source_id)
+
+
+def archive_scraper_source(connection: sqlite3.Connection, source_id: int) -> bool:
+    cursor = connection.execute(
+        "UPDATE web_scraper_sources SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (source_id,),
+    )
+    return cursor.rowcount > 0
+
+
+def mark_scraper_source_crawled(connection: sqlite3.Connection, source_id: int) -> None:
+    connection.execute(
+        """
+        UPDATE web_scraper_sources
+        SET last_crawled_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (source_id,),
+    )
+
+
+def get_scraper_cache(connection: sqlite3.Connection, url: str) -> sqlite3.Row | None:
+    return connection.execute(
+        """
+        SELECT url, source_id, status_code, title, content_hash, etag, last_modified,
+               text_content, fetched_at, expires_at, error
+        FROM web_scraper_cache
+        WHERE url = ?
+        """,
+        (url,),
+    ).fetchone()
+
+
+def upsert_scraper_cache(
+    connection: sqlite3.Connection,
+    *,
+    url: str,
+    source_id: int | None,
+    status_code: int,
+    title: str,
+    content_hash: str,
+    etag: str,
+    last_modified: str,
+    text_content: str,
+    expires_at: str,
+    error: str = "",
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO web_scraper_cache (
+            url, source_id, status_code, title, content_hash, etag, last_modified,
+            text_content, fetched_at, expires_at, error
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
+        ON CONFLICT(url) DO UPDATE SET
+            source_id = excluded.source_id,
+            status_code = excluded.status_code,
+            title = excluded.title,
+            content_hash = excluded.content_hash,
+            etag = excluded.etag,
+            last_modified = excluded.last_modified,
+            text_content = excluded.text_content,
+            fetched_at = CURRENT_TIMESTAMP,
+            expires_at = excluded.expires_at,
+            error = excluded.error
+        """,
+        (
+            url,
+            source_id,
+            status_code,
+            title,
+            content_hash,
+            etag,
+            last_modified,
+            text_content,
+            expires_at,
+            error,
+        ),
+    )
+
+
+def create_scraper_run(connection: sqlite3.Connection, source_id: int | None = None) -> ScraperRunOut:
+    cursor = connection.execute(
+        "INSERT INTO web_scraper_runs (source_id, status) VALUES (?, 'running')",
+        (source_id,),
+    )
+    return get_scraper_run(connection, int(cursor.lastrowid))
+
+
+def finish_scraper_run(
+    connection: sqlite3.Connection,
+    run_id: int,
+    *,
+    status: str,
+    pages_seen: int,
+    pages_saved: int,
+    pages_skipped: int,
+    message: str,
+) -> ScraperRunOut | None:
+    connection.execute(
+        """
+        UPDATE web_scraper_runs
+        SET status = ?, finished_at = CURRENT_TIMESTAMP, pages_seen = ?, pages_saved = ?,
+            pages_skipped = ?, message = ?
+        WHERE id = ?
+        """,
+        (status, pages_seen, pages_saved, pages_skipped, message, run_id),
+    )
+    return get_scraper_run(connection, run_id)
+
+
+def row_to_scraper_run(row: sqlite3.Row) -> ScraperRunOut:
+    return ScraperRunOut(
+        id=row["id"],
+        source_id=row["source_id"],
+        status=row["status"],
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
+        pages_seen=row["pages_seen"],
+        pages_saved=row["pages_saved"],
+        pages_skipped=row["pages_skipped"],
+        message=row["message"],
+    )
+
+
+def get_scraper_run(connection: sqlite3.Connection, run_id: int) -> ScraperRunOut | None:
+    row = connection.execute(
+        """
+        SELECT id, source_id, status, started_at, finished_at, pages_seen, pages_saved,
+               pages_skipped, message
+        FROM web_scraper_runs
+        WHERE id = ?
+        """,
+        (run_id,),
+    ).fetchone()
+    return None if row is None else row_to_scraper_run(row)
+
+
+def list_scraper_runs(connection: sqlite3.Connection, limit: int = 100) -> list[ScraperRunOut]:
+    rows = connection.execute(
+        """
+        SELECT id, source_id, status, started_at, finished_at, pages_seen, pages_saved,
+               pages_skipped, message
+        FROM web_scraper_runs
+        ORDER BY started_at DESC, id DESC
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+    return [row_to_scraper_run(row) for row in rows]
+
+
+def row_to_scraped_document(row: sqlite3.Row) -> ScrapedDocumentOut:
+    return ScrapedDocumentOut(
+        id=row["id"],
+        source_id=row["source_id"],
+        syllabus_entry_id=row["syllabus_entry_id"],
+        url=row["url"],
+        title=row["title"],
+        content=row["content"],
+        content_hash=row["content_hash"],
+        syllabus_category=row["syllabus_category"],
+        extracted_at=row["extracted_at"],
+        last_seen_at=row["last_seen_at"],
+    )
+
+
+def list_scraped_documents(
+    connection: sqlite3.Connection,
+    *,
+    source_id: int | None = None,
+    category: str | None = None,
+    limit: int = 200,
+) -> list[ScrapedDocumentOut]:
+    clauses = ["1 = 1"]
+    values: list[object] = []
+    if source_id is not None:
+        clauses.append("source_id = ?")
+        values.append(source_id)
+    if category:
+        clauses.append("syllabus_category = ?")
+        values.append(category)
+    values.append(limit)
+    rows = connection.execute(
+        f"""
+        SELECT id, source_id, syllabus_entry_id, url, title, content, content_hash,
+               syllabus_category, extracted_at, last_seen_at
+        FROM web_scraper_documents
+        WHERE {" AND ".join(clauses)}
+        ORDER BY last_seen_at DESC, id DESC
+        LIMIT ?
+        """,
+        values,
+    ).fetchall()
+    return [row_to_scraped_document(row) for row in rows]
+
+
+def upsert_scraped_document(
+    connection: sqlite3.Connection,
+    *,
+    source_id: int,
+    url: str,
+    title: str,
+    content: str,
+    content_hash: str,
+    syllabus_category: str,
+    source_name: str,
+) -> tuple[ScrapedDocumentOut, bool]:
+    existing = connection.execute(
+        """
+        SELECT id, source_id, syllabus_entry_id, url, title, content, content_hash,
+               syllabus_category, extracted_at, last_seen_at
+        FROM web_scraper_documents
+        WHERE url = ?
+        """,
+        (url,),
+    ).fetchone()
+
+    if existing is not None and existing["content_hash"] == content_hash:
+        connection.execute(
+            "UPDATE web_scraper_documents SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (existing["id"],),
+        )
+        return row_to_scraped_document(
+            connection.execute(
+                """
+                SELECT id, source_id, syllabus_entry_id, url, title, content, content_hash,
+                       syllabus_category, extracted_at, last_seen_at
+                FROM web_scraper_documents
+                WHERE id = ?
+                """,
+                (existing["id"],),
+            ).fetchone()
+        ), False
+
+    syllabus_payload = SyllabusIn(
+        title=title[:400] or "Scraped syllabus update",
+        content=content,
+        category=syllabus_category,
+        source_name=source_name,
+        source_year=None,
+        verified_at=utc_iso_now(),
+    )
+
+    if existing is not None and existing["syllabus_entry_id"]:
+        syllabus_entry = update_syllabus(connection, int(existing["syllabus_entry_id"]), syllabus_payload)
+        syllabus_id = existing["syllabus_entry_id"] if syllabus_entry else insert_syllabus(connection, syllabus_payload)
+        connection.execute(
+            """
+            UPDATE web_scraper_documents
+            SET source_id = ?, syllabus_entry_id = ?, title = ?, content = ?, content_hash = ?,
+                syllabus_category = ?, extracted_at = CURRENT_TIMESTAMP, last_seen_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (source_id, syllabus_id, title, content, content_hash, syllabus_category, existing["id"]),
+        )
+        document_id = int(existing["id"])
+    else:
+        syllabus_id = insert_syllabus(connection, syllabus_payload)
+        cursor = connection.execute(
+            """
+            INSERT INTO web_scraper_documents (
+                source_id, syllabus_entry_id, url, title, content, content_hash, syllabus_category
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(url) DO UPDATE SET
+                source_id = excluded.source_id,
+                syllabus_entry_id = excluded.syllabus_entry_id,
+                title = excluded.title,
+                content = excluded.content,
+                content_hash = excluded.content_hash,
+                syllabus_category = excluded.syllabus_category,
+                extracted_at = CURRENT_TIMESTAMP,
+                last_seen_at = CURRENT_TIMESTAMP
+            """,
+            (source_id, syllabus_id, url, title, content, content_hash, syllabus_category),
+        )
+        document_id = int(cursor.lastrowid or connection.execute("SELECT id FROM web_scraper_documents WHERE url = ?", (url,)).fetchone()["id"])
+
+    row = connection.execute(
+        """
+        SELECT id, source_id, syllabus_entry_id, url, title, content, content_hash,
+               syllabus_category, extracted_at, last_seen_at
+        FROM web_scraper_documents
+        WHERE id = ?
+        """,
+        (document_id,),
+    ).fetchone()
+    return row_to_scraped_document(row), True
+
+
+def row_to_subject(row: sqlite3.Row) -> SubjectOut:
+    return SubjectOut(
+        id=row["id"],
+        slug=row["slug"],
+        title=row["title"],
+        description=row["description"],
+        icon=row["icon"],
+        color=row["color"],
+        sort_order=row["sort_order"],
+        status=row["status"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def list_subjects(
+    connection: sqlite3.Connection,
+    *,
+    status: str | None = None,
+    limit: int = 200,
+) -> list[SubjectOut]:
+    clauses = ["1 = 1"]
+    values: list[object] = []
+    if status:
+        clauses.append("status = ?")
+        values.append(status)
+    values.append(limit)
+    rows = connection.execute(
+        f"""
+        SELECT id, slug, title, description, icon, color, sort_order, status, created_at, updated_at
+        FROM learning_subjects
+        WHERE {" AND ".join(clauses)}
+        ORDER BY sort_order ASC, title ASC, id ASC
+        LIMIT ?
+        """,
+        values,
+    ).fetchall()
+    return [row_to_subject(row) for row in rows]
+
+
+def get_subject(connection: sqlite3.Connection, subject_id: int) -> SubjectOut | None:
+    row = connection.execute(
+        """
+        SELECT id, slug, title, description, icon, color, sort_order, status, created_at, updated_at
+        FROM learning_subjects
+        WHERE id = ?
+        """,
+        (subject_id,),
+    ).fetchone()
+    return None if row is None else row_to_subject(row)
+
+
+def create_subject(connection: sqlite3.Connection, payload: SubjectIn) -> SubjectOut:
+    cursor = connection.execute(
+        """
+        INSERT INTO learning_subjects (slug, title, description, icon, color, sort_order, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            payload.slug,
+            payload.title,
+            payload.description,
+            payload.icon,
+            payload.color,
+            payload.sort_order,
+            payload.status,
+        ),
+    )
+    return get_subject(connection, int(cursor.lastrowid))
+
+
+def update_subject(connection: sqlite3.Connection, subject_id: int, payload: SubjectIn) -> SubjectOut | None:
+    cursor = connection.execute(
+        """
+        UPDATE learning_subjects
+        SET slug = ?, title = ?, description = ?, icon = ?, color = ?, sort_order = ?,
+            status = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (
+            payload.slug,
+            payload.title,
+            payload.description,
+            payload.icon,
+            payload.color,
+            payload.sort_order,
+            payload.status,
+            subject_id,
+        ),
+    )
+    if cursor.rowcount == 0:
+        return None
+    return get_subject(connection, subject_id)
+
+
+def delete_subject(connection: sqlite3.Connection, subject_id: int) -> bool:
+    cursor = connection.execute(
+        "UPDATE learning_subjects SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (subject_id,),
+    )
+    return cursor.rowcount > 0
+
+
+COURSE_COLUMNS = """
+    c.id,
+    c.subject_id,
+    s.slug AS subject_slug,
+    s.title AS subject_title,
+    c.slug,
+    c.short_name,
+    c.title,
+    c.badge,
+    c.description,
+    c.coach_line,
+    c.plan_line,
+    c.teacher,
+    c.lesson_count,
+    c.duration,
+    c.level,
+    c.progress,
+    c.ai_score,
+    c.icon,
+    c.color,
+    c.background,
+    c.sort_order,
+    c.status,
+    c.created_at,
+    c.updated_at
+"""
+
+
+def row_to_course(row: sqlite3.Row) -> CourseOut:
+    return CourseOut(
+        id=row["id"],
+        subject_id=row["subject_id"],
+        subject_slug=row["subject_slug"],
+        subject_title=row["subject_title"],
+        slug=row["slug"],
+        short_name=row["short_name"],
+        title=row["title"],
+        badge=row["badge"],
+        description=row["description"],
+        coach_line=row["coach_line"],
+        plan_line=row["plan_line"],
+        teacher=row["teacher"],
+        lesson_count=row["lesson_count"],
+        duration=row["duration"],
+        level=row["level"],
+        progress=row["progress"],
+        ai_score=row["ai_score"],
+        icon=row["icon"],
+        color=row["color"],
+        background=row["background"],
+        sort_order=row["sort_order"],
+        status=row["status"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def list_courses(
+    connection: sqlite3.Connection,
+    *,
+    subject_id: int | None = None,
+    status: str | None = None,
+    limit: int = 200,
+) -> list[CourseOut]:
+    clauses = ["1 = 1"]
+    values: list[object] = []
+    if subject_id is not None:
+        clauses.append("c.subject_id = ?")
+        values.append(subject_id)
+    if status:
+        clauses.append("c.status = ?")
+        values.append(status)
+    values.append(limit)
+    rows = connection.execute(
+        f"""
+        SELECT {COURSE_COLUMNS}
+        FROM learning_courses c
+        JOIN learning_subjects s ON s.id = c.subject_id
+        WHERE {" AND ".join(clauses)}
+        ORDER BY c.sort_order ASC, c.title ASC, c.id ASC
+        LIMIT ?
+        """,
+        values,
+    ).fetchall()
+    return [row_to_course(row) for row in rows]
+
+
+def get_course(connection: sqlite3.Connection, course_id: int, *, published_only: bool = False) -> CourseOut | None:
+    clause = "AND c.status = 'published'" if published_only else ""
+    row = connection.execute(
+        f"""
+        SELECT {COURSE_COLUMNS}
+        FROM learning_courses c
+        JOIN learning_subjects s ON s.id = c.subject_id
+        WHERE c.id = ? {clause}
+        """,
+        (course_id,),
+    ).fetchone()
+    return None if row is None else row_to_course(row)
+
+
+def get_course_by_slug(connection: sqlite3.Connection, slug: str, *, published_only: bool = False) -> CourseOut | None:
+    clause = "AND c.status = 'published'" if published_only else ""
+    row = connection.execute(
+        f"""
+        SELECT {COURSE_COLUMNS}
+        FROM learning_courses c
+        JOIN learning_subjects s ON s.id = c.subject_id
+        WHERE c.slug = ? {clause}
+        """,
+        (slug,),
+    ).fetchone()
+    return None if row is None else row_to_course(row)
+
+
+def get_course_by_identifier(
+    connection: sqlite3.Connection,
+    identifier: str,
+    *,
+    published_only: bool = False,
+) -> CourseOut | None:
+    return get_course(connection, int(identifier), published_only=published_only) if identifier.isdigit() else get_course_by_slug(
+        connection,
+        identifier,
+        published_only=published_only,
+    )
+
+
+def create_course(connection: sqlite3.Connection, payload: CourseIn) -> CourseOut:
+    cursor = connection.execute(
+        """
+        INSERT INTO learning_courses (
+            subject_id, slug, short_name, title, badge, description, coach_line, plan_line,
+            teacher, lesson_count, duration, level, progress, ai_score, icon, color,
+            background, sort_order, status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            payload.subject_id,
+            payload.slug,
+            payload.short_name,
+            payload.title,
+            payload.badge,
+            payload.description,
+            payload.coach_line,
+            payload.plan_line,
+            payload.teacher,
+            payload.lesson_count,
+            payload.duration,
+            payload.level,
+            payload.progress,
+            payload.ai_score,
+            payload.icon,
+            payload.color,
+            payload.background,
+            payload.sort_order,
+            payload.status,
+        ),
+    )
+    return get_course(connection, int(cursor.lastrowid))
+
+
+def update_course(connection: sqlite3.Connection, course_id: int, payload: CourseIn) -> CourseOut | None:
+    cursor = connection.execute(
+        """
+        UPDATE learning_courses
+        SET
+            subject_id = ?, slug = ?, short_name = ?, title = ?, badge = ?,
+            description = ?, coach_line = ?, plan_line = ?, teacher = ?,
+            lesson_count = ?, duration = ?, level = ?, progress = ?, ai_score = ?,
+            icon = ?, color = ?, background = ?, sort_order = ?, status = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (
+            payload.subject_id,
+            payload.slug,
+            payload.short_name,
+            payload.title,
+            payload.badge,
+            payload.description,
+            payload.coach_line,
+            payload.plan_line,
+            payload.teacher,
+            payload.lesson_count,
+            payload.duration,
+            payload.level,
+            payload.progress,
+            payload.ai_score,
+            payload.icon,
+            payload.color,
+            payload.background,
+            payload.sort_order,
+            payload.status,
+            course_id,
+        ),
+    )
+    if cursor.rowcount == 0:
+        return None
+    return get_course(connection, course_id)
+
+
+def delete_course(connection: sqlite3.Connection, course_id: int) -> bool:
+    cursor = connection.execute(
+        "UPDATE learning_courses SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (course_id,),
+    )
+    return cursor.rowcount > 0
+
+
+def row_to_course_module(row: sqlite3.Row) -> CourseModuleOut:
+    return CourseModuleOut(
+        id=row["id"],
+        course_id=row["course_id"],
+        title=row["title"],
+        lessons=row["lessons"],
+        duration=row["duration"],
+        progress=row["progress"],
+        locked=bool(row["locked"]),
+        sort_order=row["sort_order"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def list_course_modules(connection: sqlite3.Connection, course_id: int) -> list[CourseModuleOut]:
+    rows = connection.execute(
+        """
+        SELECT id, course_id, title, lessons, duration, progress, locked, sort_order, created_at, updated_at
+        FROM learning_course_modules
+        WHERE course_id = ?
+        ORDER BY sort_order ASC, id ASC
+        """,
+        (course_id,),
+    ).fetchall()
+    return [row_to_course_module(row) for row in rows]
+
+
+def get_course_module(connection: sqlite3.Connection, module_id: int) -> CourseModuleOut | None:
+    row = connection.execute(
+        """
+        SELECT id, course_id, title, lessons, duration, progress, locked, sort_order, created_at, updated_at
+        FROM learning_course_modules
+        WHERE id = ?
+        """,
+        (module_id,),
+    ).fetchone()
+    return None if row is None else row_to_course_module(row)
+
+
+def create_course_module(connection: sqlite3.Connection, course_id: int, payload: CourseModuleIn) -> CourseModuleOut:
+    cursor = connection.execute(
+        """
+        INSERT INTO learning_course_modules (course_id, title, lessons, duration, progress, locked, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            course_id,
+            payload.title,
+            payload.lessons,
+            payload.duration,
+            payload.progress,
+            int(payload.locked),
+            payload.sort_order,
+        ),
+    )
+    return get_course_module(connection, int(cursor.lastrowid))
+
+
+def update_course_module(connection: sqlite3.Connection, module_id: int, payload: CourseModuleIn) -> CourseModuleOut | None:
+    cursor = connection.execute(
+        """
+        UPDATE learning_course_modules
+        SET title = ?, lessons = ?, duration = ?, progress = ?, locked = ?,
+            sort_order = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (
+            payload.title,
+            payload.lessons,
+            payload.duration,
+            payload.progress,
+            int(payload.locked),
+            payload.sort_order,
+            module_id,
+        ),
+    )
+    if cursor.rowcount == 0:
+        return None
+    return get_course_module(connection, module_id)
+
+
+def delete_course_module(connection: sqlite3.Connection, module_id: int) -> bool:
+    cursor = connection.execute("DELETE FROM learning_course_modules WHERE id = ?", (module_id,))
+    return cursor.rowcount > 0
+
+
+def row_to_course_task(row: sqlite3.Row) -> CourseTaskOut:
+    return CourseTaskOut(
+        id=row["id"],
+        course_id=row["course_id"],
+        title=row["title"],
+        subtitle=row["subtitle"],
+        duration=row["duration"],
+        icon=row["icon"],
+        score_boost=row["score_boost"],
+        next_difficulty=row["next_difficulty"],
+        alert_title=row["alert_title"],
+        alert_message=row["alert_message"],
+        sort_order=row["sort_order"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def list_course_tasks(connection: sqlite3.Connection, course_id: int | None = None) -> list[CourseTaskOut]:
+    if course_id is None:
+        rows = connection.execute(
+            """
+            SELECT id, course_id, title, subtitle, duration, icon, score_boost, next_difficulty,
+                   alert_title, alert_message, sort_order, created_at, updated_at
+            FROM learning_course_tasks
+            WHERE course_id IS NULL
+            ORDER BY sort_order ASC, id ASC
+            """
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            """
+            SELECT id, course_id, title, subtitle, duration, icon, score_boost, next_difficulty,
+                   alert_title, alert_message, sort_order, created_at, updated_at
+            FROM learning_course_tasks
+            WHERE course_id = ? OR course_id IS NULL
+            ORDER BY CASE WHEN course_id IS NULL THEN 1 ELSE 0 END, sort_order ASC, id ASC
+            """,
+            (course_id,),
+        ).fetchall()
+    return [row_to_course_task(row) for row in rows]
+
+
+def get_course_task(connection: sqlite3.Connection, task_id: int) -> CourseTaskOut | None:
+    row = connection.execute(
+        """
+        SELECT id, course_id, title, subtitle, duration, icon, score_boost, next_difficulty,
+               alert_title, alert_message, sort_order, created_at, updated_at
+        FROM learning_course_tasks
+        WHERE id = ?
+        """,
+        (task_id,),
+    ).fetchone()
+    return None if row is None else row_to_course_task(row)
+
+
+def create_course_task(connection: sqlite3.Connection, payload: CourseTaskIn) -> CourseTaskOut:
+    cursor = connection.execute(
+        """
+        INSERT INTO learning_course_tasks (
+            course_id, title, subtitle, duration, icon, score_boost, next_difficulty,
+            alert_title, alert_message, sort_order
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            payload.course_id,
+            payload.title,
+            payload.subtitle,
+            payload.duration,
+            payload.icon,
+            payload.score_boost,
+            payload.next_difficulty,
+            payload.alert_title,
+            payload.alert_message,
+            payload.sort_order,
+        ),
+    )
+    return get_course_task(connection, int(cursor.lastrowid))
+
+
+def update_course_task(connection: sqlite3.Connection, task_id: int, payload: CourseTaskIn) -> CourseTaskOut | None:
+    cursor = connection.execute(
+        """
+        UPDATE learning_course_tasks
+        SET course_id = ?, title = ?, subtitle = ?, duration = ?, icon = ?,
+            score_boost = ?, next_difficulty = ?, alert_title = ?, alert_message = ?,
+            sort_order = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (
+            payload.course_id,
+            payload.title,
+            payload.subtitle,
+            payload.duration,
+            payload.icon,
+            payload.score_boost,
+            payload.next_difficulty,
+            payload.alert_title,
+            payload.alert_message,
+            payload.sort_order,
+            task_id,
+        ),
+    )
+    if cursor.rowcount == 0:
+        return None
+    return get_course_task(connection, task_id)
+
+
+def delete_course_task(connection: sqlite3.Connection, task_id: int) -> bool:
+    cursor = connection.execute("DELETE FROM learning_course_tasks WHERE id = ?", (task_id,))
+    return cursor.rowcount > 0
+
+
+def row_to_course_question(row: sqlite3.Row) -> CourseQuestionOut:
+    try:
+        tags = json.loads(row["tags_json"] or "[]")
+    except json.JSONDecodeError:
+        tags = []
+    return CourseQuestionOut(
+        id=row["id"],
+        course_id=row["course_id"],
+        mode=row["mode"],
+        prompt=row["prompt"],
+        option_a=row["option_a"],
+        option_b=row["option_b"],
+        option_c=row["option_c"],
+        option_d=row["option_d"],
+        correct_option=row["correct_option"],
+        explanation=row["explanation"],
+        hint=row["hint"],
+        tags=[str(tag) for tag in tags],
+        sort_order=row["sort_order"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def list_course_questions(connection: sqlite3.Connection, course_id: int) -> list[CourseQuestionOut]:
+    rows = connection.execute(
+        """
+        SELECT id, course_id, mode, prompt, option_a, option_b, option_c, option_d,
+               correct_option, explanation, hint, tags_json, sort_order, created_at, updated_at
+        FROM learning_course_questions
+        WHERE course_id = ?
+        ORDER BY sort_order ASC, id ASC
+        """,
+        (course_id,),
+    ).fetchall()
+    return [row_to_course_question(row) for row in rows]
+
+
+def get_course_question(connection: sqlite3.Connection, question_id: int) -> CourseQuestionOut | None:
+    row = connection.execute(
+        """
+        SELECT id, course_id, mode, prompt, option_a, option_b, option_c, option_d,
+               correct_option, explanation, hint, tags_json, sort_order, created_at, updated_at
+        FROM learning_course_questions
+        WHERE id = ?
+        """,
+        (question_id,),
+    ).fetchone()
+    return None if row is None else row_to_course_question(row)
+
+
+def create_course_question(connection: sqlite3.Connection, course_id: int, payload: CourseQuestionIn) -> CourseQuestionOut:
+    cursor = connection.execute(
+        """
+        INSERT INTO learning_course_questions (
+            course_id, mode, prompt, option_a, option_b, option_c, option_d,
+            correct_option, explanation, hint, tags_json, sort_order
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            course_id,
+            payload.mode,
+            payload.prompt,
+            payload.option_a,
+            payload.option_b,
+            payload.option_c,
+            payload.option_d,
+            payload.correct_option,
+            payload.explanation,
+            payload.hint,
+            json.dumps(payload.tags),
+            payload.sort_order,
+        ),
+    )
+    return get_course_question(connection, int(cursor.lastrowid))
+
+
+def update_course_question(
+    connection: sqlite3.Connection,
+    question_id: int,
+    payload: CourseQuestionIn,
+) -> CourseQuestionOut | None:
+    cursor = connection.execute(
+        """
+        UPDATE learning_course_questions
+        SET mode = ?, prompt = ?, option_a = ?, option_b = ?, option_c = ?, option_d = ?,
+            correct_option = ?, explanation = ?, hint = ?, tags_json = ?,
+            sort_order = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (
+            payload.mode,
+            payload.prompt,
+            payload.option_a,
+            payload.option_b,
+            payload.option_c,
+            payload.option_d,
+            payload.correct_option,
+            payload.explanation,
+            payload.hint,
+            json.dumps(payload.tags),
+            payload.sort_order,
+            question_id,
+        ),
+    )
+    if cursor.rowcount == 0:
+        return None
+    return get_course_question(connection, question_id)
+
+
+def delete_course_question(connection: sqlite3.Connection, question_id: int) -> bool:
+    cursor = connection.execute("DELETE FROM learning_course_questions WHERE id = ?", (question_id,))
+    return cursor.rowcount > 0
+
+
+def row_to_course_mistake(row: sqlite3.Row) -> CourseMistakeOut:
+    return CourseMistakeOut(
+        id=row["id"],
+        course_id=row["course_id"],
+        title=row["title"],
+        reason=row["reason"],
+        sort_order=row["sort_order"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def list_course_mistakes(connection: sqlite3.Connection, course_id: int) -> list[CourseMistakeOut]:
+    rows = connection.execute(
+        """
+        SELECT id, course_id, title, reason, sort_order, created_at, updated_at
+        FROM learning_course_mistakes
+        WHERE course_id = ?
+        ORDER BY sort_order ASC, id ASC
+        """,
+        (course_id,),
+    ).fetchall()
+    return [row_to_course_mistake(row) for row in rows]
+
+
+def get_course_mistake(connection: sqlite3.Connection, mistake_id: int) -> CourseMistakeOut | None:
+    row = connection.execute(
+        """
+        SELECT id, course_id, title, reason, sort_order, created_at, updated_at
+        FROM learning_course_mistakes
+        WHERE id = ?
+        """,
+        (mistake_id,),
+    ).fetchone()
+    return None if row is None else row_to_course_mistake(row)
+
+
+def create_course_mistake(connection: sqlite3.Connection, course_id: int, payload: CourseMistakeIn) -> CourseMistakeOut:
+    cursor = connection.execute(
+        """
+        INSERT INTO learning_course_mistakes (course_id, title, reason, sort_order)
+        VALUES (?, ?, ?, ?)
+        """,
+        (course_id, payload.title, payload.reason, payload.sort_order),
+    )
+    return get_course_mistake(connection, int(cursor.lastrowid))
+
+
+def update_course_mistake(connection: sqlite3.Connection, mistake_id: int, payload: CourseMistakeIn) -> CourseMistakeOut | None:
+    cursor = connection.execute(
+        """
+        UPDATE learning_course_mistakes
+        SET title = ?, reason = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (payload.title, payload.reason, payload.sort_order, mistake_id),
+    )
+    if cursor.rowcount == 0:
+        return None
+    return get_course_mistake(connection, mistake_id)
+
+
+def delete_course_mistake(connection: sqlite3.Connection, mistake_id: int) -> bool:
+    cursor = connection.execute("DELETE FROM learning_course_mistakes WHERE id = ?", (mistake_id,))
+    return cursor.rowcount > 0
+
+
+def get_course_detail(
+    connection: sqlite3.Connection,
+    identifier: str,
+    *,
+    published_only: bool = False,
+) -> CourseDetailOut | None:
+    course = get_course_by_identifier(connection, identifier, published_only=published_only)
+    if course is None:
+        return None
+    return CourseDetailOut(
+        course=course,
+        modules=list_course_modules(connection, course.id),
+        tasks=list_course_tasks(connection, course.id),
+        questions=list_course_questions(connection, course.id),
+        mistakes=list_course_mistakes(connection, course.id),
+    )
 
 
 def list_reports(connection: sqlite3.Connection, *, status: str | None = None, limit: int = 200) -> list[ReportOut]:
@@ -1378,5 +2533,3 @@ def ai_tutor_ask(connection: sqlite3.Connection, query: str, include_deleted: bo
         "answer": response_text,
         "citations": citations
     }
-
-

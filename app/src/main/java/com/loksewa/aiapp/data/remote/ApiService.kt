@@ -138,6 +138,99 @@ data class ReportResponse(
     val status: String
 )
 
+data class SubjectResponse(
+    val id: Int,
+    val slug: String,
+    val title: String,
+    val description: String,
+    val icon: String,
+    val color: String,
+    @SerializedName("sort_order") val sortOrder: Int,
+    val status: String
+)
+
+data class CourseResponse(
+    val id: Int,
+    @SerializedName("subject_id") val subjectId: Int,
+    @SerializedName("subject_slug") val subjectSlug: String,
+    @SerializedName("subject_title") val subjectTitle: String,
+    val slug: String,
+    @SerializedName("short_name") val shortName: String,
+    val title: String,
+    val badge: String,
+    val description: String,
+    @SerializedName("coach_line") val coachLine: String,
+    @SerializedName("plan_line") val planLine: String,
+    val teacher: String,
+    @SerializedName("lesson_count") val lessonCount: Int,
+    val duration: String,
+    val level: String,
+    val progress: Int,
+    @SerializedName("ai_score") val aiScore: Int,
+    val icon: String,
+    val color: String,
+    val background: String,
+    @SerializedName("sort_order") val sortOrder: Int,
+    val status: String
+)
+
+data class CourseModuleResponse(
+    val id: Int,
+    @SerializedName("course_id") val courseId: Int,
+    val title: String,
+    val lessons: Int,
+    val duration: String,
+    val progress: Int,
+    val locked: Boolean,
+    @SerializedName("sort_order") val sortOrder: Int
+)
+
+data class CourseTaskResponse(
+    val id: Int,
+    @SerializedName("course_id") val courseId: Int?,
+    val title: String,
+    val subtitle: String,
+    val duration: String,
+    val icon: String,
+    @SerializedName("score_boost") val scoreBoost: Int,
+    @SerializedName("next_difficulty") val nextDifficulty: String,
+    @SerializedName("alert_title") val alertTitle: String,
+    @SerializedName("alert_message") val alertMessage: String,
+    @SerializedName("sort_order") val sortOrder: Int
+)
+
+data class CourseQuestionResponse(
+    val id: Int,
+    @SerializedName("course_id") val courseId: Int,
+    val mode: String,
+    val prompt: String,
+    @SerializedName("option_a") val optionA: String,
+    @SerializedName("option_b") val optionB: String,
+    @SerializedName("option_c") val optionC: String,
+    @SerializedName("option_d") val optionD: String,
+    @SerializedName("correct_option") val correctOption: String,
+    val explanation: String,
+    val hint: String,
+    val tags: List<String>,
+    @SerializedName("sort_order") val sortOrder: Int
+)
+
+data class CourseMistakeResponse(
+    val id: Int,
+    @SerializedName("course_id") val courseId: Int,
+    val title: String,
+    val reason: String,
+    @SerializedName("sort_order") val sortOrder: Int
+)
+
+data class CourseDetailResponse(
+    val course: CourseResponse,
+    val modules: List<CourseModuleResponse>,
+    val tasks: List<CourseTaskResponse>,
+    val questions: List<CourseQuestionResponse>,
+    val mistakes: List<CourseMistakeResponse>
+)
+
 // API Service interface
 interface LoksewaApiService {
     // Auth endpoints
@@ -170,6 +263,19 @@ interface LoksewaApiService {
     // Categories
     @GET("v1/categories")
     suspend fun getCategories(): Response<List<String>>
+
+    // Learning catalog
+    @GET("v1/subjects")
+    suspend fun getSubjects(): Response<List<SubjectResponse>>
+
+    @GET("v1/courses")
+    suspend fun getCourses(
+        @Query("subject_id") subjectId: Int? = null,
+        @Query("limit") limit: Int = 100
+    ): Response<List<CourseResponse>>
+
+    @GET("v1/courses/{identifier}")
+    suspend fun getCourseDetail(@Path("identifier") identifier: String): Response<CourseDetailResponse>
 
     // Mock Tests
     @GET("v1/mock-tests")

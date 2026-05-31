@@ -6,6 +6,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def env_bool(name: str, default: str = "false") -> bool:
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "Loksewa AI API"
@@ -35,6 +39,28 @@ class Settings:
     medium_confidence_threshold: float = float(os.getenv("LOKSEWA_MEDIUM_CONFIDENCE", "0.18"))
     max_search_limit: int = int(os.getenv("LOKSEWA_MAX_SEARCH_LIMIT", "10"))
     rate_limit_per_minute: int = int(os.getenv("LOKSEWA_RATE_LIMIT_PER_MINUTE", "120"))
+    scraper_target_urls: tuple[str, ...] = tuple(
+        url.strip()
+        for url in os.getenv(
+            "LOKSEWA_SCRAPER_TARGET_URLS",
+            "https://www.psc.gov.np",
+        ).split(",")
+        if url.strip()
+    )
+    cache_default_ttl: int = int(os.getenv("LOKSEWA_CACHE_DEFAULT_TTL", "3600"))
+    scraper_enabled: bool = env_bool("LOKSEWA_SCRAPER_ENABLED", "true")
+    scraper_refresh_interval_seconds: int = int(os.getenv("LOKSEWA_SCRAPER_REFRESH_INTERVAL_SECONDS", "3600"))
+    scraper_memory_ttl_seconds: int = int(os.getenv("LOKSEWA_SCRAPER_MEMORY_TTL_SECONDS", "900"))
+    scraper_request_timeout_seconds: int = int(os.getenv("LOKSEWA_SCRAPER_REQUEST_TIMEOUT_SECONDS", "12"))
+    scraper_max_pages_per_source: int = int(os.getenv("LOKSEWA_SCRAPER_MAX_PAGES_PER_SOURCE", "25"))
+    scraper_min_text_chars: int = int(os.getenv("LOKSEWA_SCRAPER_MIN_TEXT_CHARS", "300"))
+    scraper_max_content_chars: int = int(os.getenv("LOKSEWA_SCRAPER_MAX_CONTENT_CHARS", "30000"))
+    scraper_respect_robots: bool = env_bool("LOKSEWA_SCRAPER_RESPECT_ROBOTS", "true")
+    scraper_user_agent: str = os.getenv(
+        "LOKSEWA_SCRAPER_USER_AGENT",
+        "LoksewaAIStudyBot/0.1 (+https://localhost; educational syllabus updater)",
+    )
+
 
 
 def validate_settings() -> None:

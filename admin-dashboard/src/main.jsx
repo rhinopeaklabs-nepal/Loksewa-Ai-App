@@ -31,6 +31,79 @@ const emptySyllabus = {
   source_year: ""
 };
 
+const emptySubject = {
+  slug: "",
+  title: "",
+  description: "",
+  icon: "school",
+  color: "#635BFF",
+  sort_order: 0,
+  status: "published"
+};
+
+const emptyCourse = {
+  subject_id: "",
+  slug: "",
+  short_name: "",
+  title: "",
+  badge: "",
+  description: "",
+  coach_line: "",
+  plan_line: "",
+  teacher: "",
+  lesson_count: 0,
+  duration: "",
+  level: "",
+  progress: 0,
+  ai_score: 0,
+  icon: "book",
+  color: "#635BFF",
+  background: "#EEEAFE",
+  sort_order: 0,
+  status: "published"
+};
+
+const emptyModule = {
+  title: "",
+  lessons: 0,
+  duration: "",
+  progress: 0,
+  locked: false,
+  sort_order: 0
+};
+
+const emptyTask = {
+  title: "",
+  subtitle: "",
+  duration: "",
+  icon: "assignment",
+  score_boost: 0,
+  next_difficulty: "Adaptive",
+  alert_title: "",
+  alert_message: "",
+  sort_order: 0
+};
+
+const emptyCourseQuestion = {
+  mode: "Practice",
+  prompt: "",
+  option_a: "",
+  option_b: "",
+  option_c: "",
+  option_d: "",
+  correct_option: "A",
+  explanation: "",
+  hint: "",
+  tags_text: "",
+  sort_order: 0
+};
+
+const emptyMistake = {
+  title: "",
+  reason: "",
+  sort_order: 0
+};
+
 const emptyMock = {
   title: "",
   description: "",
@@ -94,8 +167,12 @@ function App() {
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({ questionStatus: "", questionQuery: "", reportStatus: "" });
-  const [data, setData] = useState({ questions: [], syllabus: [], mocks: [], users: [], reports: [] });
+  const [data, setData] = useState({ subjects: [], courses: [], questions: [], syllabus: [], mocks: [], users: [], reports: [] });
 
+  const [subjectForm, setSubjectForm] = useState(emptySubject);
+  const [subjectId, setSubjectId] = useState("");
+  const [courseForm, setCourseForm] = useState(emptyCourse);
+  const [courseId, setCourseId] = useState("");
   const [questionForm, setQuestionForm] = useState(emptyQuestion);
   const [questionId, setQuestionId] = useState("");
   const [syllabusForm, setSyllabusForm] = useState(emptySyllabus);
@@ -134,7 +211,9 @@ function App() {
     review: data.questions.filter((item) => item.verification_status === "needs_review").length,
     mocks: data.mocks.filter((item) => item.status === "published").length,
     reports: data.reports.filter((item) => item.status === "open").length,
-    users: data.users.length
+    users: data.users.length,
+    subjects: data.subjects.filter((item) => item.status === "published").length,
+    courses: data.courses.filter((item) => item.status === "published").length
   }), [data]);
 
   function flash(message) {
@@ -150,14 +229,16 @@ function App() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [questions, syllabus, mocks, users, reports] = await Promise.all([
+      const [subjects, courses, questions, syllabus, mocks, users, reports] = await Promise.all([
+        api("/v1/admin/subjects"),
+        api("/v1/admin/courses"),
         api(`/v1/admin/questions${toQuery({ verification_status: filters.questionStatus, query: filters.questionQuery })}`),
         api("/v1/admin/syllabus"),
         api("/v1/admin/mock-tests"),
         api("/v1/admin/users"),
         api(`/v1/admin/reports${toQuery({ report_status: filters.reportStatus })}`)
       ]);
-      setData({ questions, syllabus, mocks, users, reports });
+      setData({ subjects, courses, questions, syllabus, mocks, users, reports });
     } finally {
       setLoading(false);
     }
@@ -186,6 +267,68 @@ function App() {
     } catch (error) {
       flash(error.message);
     }
+  }
+
+  async function saveSubject(event) {
+    event.preventDefault();
+    const payload = {
+      ...subjectForm,
+      sort_order: Number(subjectForm.sort_order || 0)
+    };
+    try {
+      await api(subjectId ? `/v1/admin/subjects/${subjectId}` : "/v1/admin/subjects", {
+        method: subjectId ? "PUT" : "POST",
+        body: JSON.stringify(payload)
+      });
+      setSubjectId("");
+      setSubjectForm(emptySubject);
+      await loadAll();
+      flash("Subject saved");
+    } catch (error) {
+      flash(error.message);
+    }
+  }
+
+  async function archiveSubject(id) {
+    if (!window.confirm("Archive this subject? Courses stay available for admins but published mobile lists will hide it when archived.")) return;
+    await api(`/v1/admin/subjects/${id}`, { method: "DELETE" });
+    await loadAll();
+    flash("Subject archived");
+  }
+
+  async function saveCourse(event) {
+    event.preventDefault();
+    if (!courseForm.subject_id) {
+      flash("Select a subject before saving a course");
+      return;
+    }
+    const payload = {
+      ...courseForm,
+      subject_id: Number(courseForm.subject_id),
+      lesson_count: Number(courseForm.lesson_count || 0),
+      progress: Number(courseForm.progress || 0),
+      ai_score: Number(courseForm.ai_score || 0),
+      sort_order: Number(courseForm.sort_order || 0)
+    };
+    try {
+      await api(courseId ? `/v1/admin/courses/${courseId}` : "/v1/admin/courses", {
+        method: courseId ? "PUT" : "POST",
+        body: JSON.stringify(payload)
+      });
+      setCourseId("");
+      setCourseForm(emptyCourse);
+      await loadAll();
+      flash("Course saved");
+    } catch (error) {
+      flash(error.message);
+    }
+  }
+
+  async function archiveCourse(id) {
+    if (!window.confirm("Archive this course? It will disappear from mobile course discovery but its details remain editable here.")) return;
+    await api(`/v1/admin/courses/${id}`, { method: "DELETE" });
+    await loadAll();
+    flash("Course archived");
   }
 
   async function saveQuestion(event) {
@@ -320,6 +463,8 @@ function App() {
         <nav>
           {[
             ["overview", "Overview"],
+            ["subjects", "Subjects"],
+            ["courses", "Courses"],
             ["questions", "Questions"],
             ["syllabus", "Syllabus"],
             ["mocks", "Mock Tests"],
@@ -347,6 +492,34 @@ function App() {
         </header>
 
         {tab === "overview" && <Overview metrics={metrics} />}
+
+        {tab === "subjects" && (
+          <Subjects
+            items={data.subjects}
+            form={subjectForm}
+            setForm={setSubjectForm}
+            formId={subjectId}
+            setFormId={setSubjectId}
+            save={saveSubject}
+            archive={archiveSubject}
+          />
+        )}
+
+        {tab === "courses" && (
+          <Courses
+            api={api}
+            flash={flash}
+            reload={loadAll}
+            subjects={data.subjects}
+            items={data.courses}
+            form={courseForm}
+            setForm={setCourseForm}
+            formId={courseId}
+            setFormId={setCourseId}
+            save={saveCourse}
+            archive={archiveCourse}
+          />
+        )}
 
         {tab === "questions" && (
           <Questions
@@ -435,6 +608,8 @@ function Login({ onSubmit, toast }) {
 function sectionTitle(tab) {
   return {
     overview: "Operations overview",
+    subjects: "Learning subjects CRUD",
+    courses: "Course detail and learning flow CRUD",
     questions: "Question bank CRUD",
     syllabus: "Syllabus and references",
     mocks: "Real-exam mock tests",
@@ -447,15 +622,16 @@ function Overview({ metrics }) {
   return (
     <section className="content">
       <div className="metrics">
+        <Metric label="Published subjects" value={metrics.subjects} />
+        <Metric label="Published courses" value={metrics.courses} />
         <Metric label="Verified questions" value={metrics.verified} />
         <Metric label="Needs review" value={metrics.review} />
         <Metric label="Published mocks" value={metrics.mocks} />
         <Metric label="Open reports" value={metrics.reports} />
-        <Metric label="Users" value={metrics.users} />
       </div>
       <div className="notice">
-        <h3>Mock test marking</h3>
-        <p>Each mock test can use Loksewa-style configurable marking: positive marks for correct answers, optional negative marks for wrong answers, zero for unanswered questions, and a backend-enforced time limit.</p>
+        <h3>Mobile learning data</h3>
+        <p>Subjects, courses, modules, tasks, weak topics, and learning-flow questions now come from the backend API. Publish only the records you want visible inside the mobile app.</p>
       </div>
     </section>
   );
@@ -463,6 +639,315 @@ function Overview({ metrics }) {
 
 function Metric({ label, value }) {
   return <div className="metric"><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function Subjects({ items, form, setForm, formId, setFormId, save, archive }) {
+  return (
+    <section className="content">
+      <form className="editor" onSubmit={save}>
+        <Field label="Slug" value={form.slug} onChange={(value) => setForm({ ...form, slug: value })} />
+        <Field label="Title" value={form.title} onChange={(value) => setForm({ ...form, title: value })} />
+        <Field label="Icon key" value={form.icon} onChange={(value) => setForm({ ...form, icon: value })} />
+        <Field label="Color" type="color" value={form.color} onChange={(value) => setForm({ ...form, color: value })} />
+        <Field label="Sort order" type="number" value={form.sort_order} onChange={(value) => setForm({ ...form, sort_order: value })} />
+        <Select label="Status" value={form.status} options={["draft", "published", "archived"]} onChange={(value) => setForm({ ...form, status: value })} />
+        <Field wide label="Description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} textarea />
+        <div className="actions wide">
+          <button className="primary">{formId ? "Update subject" : "Create subject"}</button>
+          <button type="button" className="outline" onClick={() => { setFormId(""); setForm(emptySubject); }}>Clear</button>
+        </div>
+      </form>
+      <DataTable
+        columns={["ID", "Subject", "Slug", "Order", "Status", "Actions"]}
+        rows={items.map((item) => [
+          item.id,
+          <strong>{item.title}</strong>,
+          item.slug,
+          item.sort_order,
+          <Badge value={item.status} />,
+          <RowActions edit={() => { setFormId(item.id); setForm(item); }} remove={() => archive(item.id)} removeLabel="Archive" />
+        ])}
+      />
+    </section>
+  );
+}
+
+function Courses({ api, flash, reload, subjects, items, form, setForm, formId, setFormId, save, archive }) {
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [detail, setDetail] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [moduleForm, setModuleForm] = useState(emptyModule);
+  const [moduleId, setModuleId] = useState("");
+  const [taskForm, setTaskForm] = useState(emptyTask);
+  const [taskId, setTaskId] = useState("");
+  const [flowForm, setFlowForm] = useState(emptyCourseQuestion);
+  const [flowId, setFlowId] = useState("");
+  const [mistakeForm, setMistakeForm] = useState(emptyMistake);
+  const [mistakeId, setMistakeId] = useState("");
+
+  useEffect(() => {
+    if (!selectedCourseId && items.length) setSelectedCourseId(String(items[0].id));
+  }, [items, selectedCourseId]);
+
+  useEffect(() => {
+    if (!selectedCourseId) return;
+    loadDetail(selectedCourseId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourseId]);
+
+  async function loadDetail(id = selectedCourseId) {
+    if (!id) return;
+    setBusy(true);
+    try {
+      setDetail(await api(`/v1/admin/courses/${id}/detail`));
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function resetDetailForms() {
+    setModuleId("");
+    setModuleForm(emptyModule);
+    setTaskId("");
+    setTaskForm(emptyTask);
+    setFlowId("");
+    setFlowForm(emptyCourseQuestion);
+    setMistakeId("");
+    setMistakeForm(emptyMistake);
+  }
+
+  async function saveModule(event) {
+    event.preventDefault();
+    const payload = {
+      ...moduleForm,
+      lessons: Number(moduleForm.lessons || 0),
+      progress: Number(moduleForm.progress || 0),
+      sort_order: Number(moduleForm.sort_order || 0),
+      locked: Boolean(moduleForm.locked)
+    };
+    await api(moduleId ? `/v1/admin/course-modules/${moduleId}` : `/v1/admin/courses/${selectedCourseId}/modules`, {
+      method: moduleId ? "PUT" : "POST",
+      body: JSON.stringify(payload)
+    });
+    setModuleId("");
+    setModuleForm(emptyModule);
+    await loadDetail();
+    await reload();
+    flash("Module saved");
+  }
+
+  async function saveTask(event) {
+    event.preventDefault();
+    const payload = {
+      ...taskForm,
+      course_id: Number(selectedCourseId),
+      score_boost: Number(taskForm.score_boost || 0),
+      sort_order: Number(taskForm.sort_order || 0)
+    };
+    await api(taskId ? `/v1/admin/course-tasks/${taskId}` : `/v1/admin/courses/${selectedCourseId}/tasks`, {
+      method: taskId ? "PUT" : "POST",
+      body: JSON.stringify(payload)
+    });
+    setTaskId("");
+    setTaskForm(emptyTask);
+    await loadDetail();
+    flash("Learning task saved");
+  }
+
+  async function saveFlowQuestion(event) {
+    event.preventDefault();
+    const payload = {
+      ...flowForm,
+      tags: flowForm.tags_text.split(",").map((tag) => tag.trim()).filter(Boolean),
+      sort_order: Number(flowForm.sort_order || 0)
+    };
+    delete payload.tags_text;
+    await api(flowId ? `/v1/admin/course-questions/${flowId}` : `/v1/admin/courses/${selectedCourseId}/questions`, {
+      method: flowId ? "PUT" : "POST",
+      body: JSON.stringify(payload)
+    });
+    setFlowId("");
+    setFlowForm(emptyCourseQuestion);
+    await loadDetail();
+    flash("Learning-flow question saved");
+  }
+
+  async function saveMistake(event) {
+    event.preventDefault();
+    const payload = { ...mistakeForm, sort_order: Number(mistakeForm.sort_order || 0) };
+    await api(mistakeId ? `/v1/admin/course-mistakes/${mistakeId}` : `/v1/admin/courses/${selectedCourseId}/mistakes`, {
+      method: mistakeId ? "PUT" : "POST",
+      body: JSON.stringify(payload)
+    });
+    setMistakeId("");
+    setMistakeForm(emptyMistake);
+    await loadDetail();
+    flash("Weak topic saved");
+  }
+
+  async function removeDetail(kind, id) {
+    const labels = { module: "module", task: "task", question: "learning-flow question", mistake: "weak topic" };
+    if (!window.confirm(`Delete this ${labels[kind]}? This removes it from the mobile course detail immediately.`)) return;
+    const paths = {
+      module: `/v1/admin/course-modules/${id}`,
+      task: `/v1/admin/course-tasks/${id}`,
+      question: `/v1/admin/course-questions/${id}`,
+      mistake: `/v1/admin/course-mistakes/${id}`
+    };
+    await api(paths[kind], { method: "DELETE" });
+    await loadDetail();
+    flash(`${labels[kind]} deleted`);
+  }
+
+  const subjectOptions = subjects.map((subject) => ({ value: subject.id, label: `${subject.title} (${subject.slug})` }));
+
+  return (
+    <section className="content">
+      <form className="editor" onSubmit={save}>
+        <label>
+          Subject
+          <select value={form.subject_id} onChange={(event) => setForm({ ...form, subject_id: event.target.value })}>
+            <option value="">Select subject</option>
+            {subjectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <Field label="Slug" value={form.slug} onChange={(value) => setForm({ ...form, slug: value })} />
+        <Field label="Short name" value={form.short_name} onChange={(value) => setForm({ ...form, short_name: value })} />
+        <Field label="Title" value={form.title} onChange={(value) => setForm({ ...form, title: value })} />
+        <Field label="Badge" value={form.badge} onChange={(value) => setForm({ ...form, badge: value })} />
+        <Field label="Teacher" value={form.teacher} onChange={(value) => setForm({ ...form, teacher: value })} />
+        <Field label="Lessons" type="number" value={form.lesson_count} onChange={(value) => setForm({ ...form, lesson_count: value })} />
+        <Field label="Duration" value={form.duration} onChange={(value) => setForm({ ...form, duration: value })} />
+        <Field label="Level" value={form.level} onChange={(value) => setForm({ ...form, level: value })} />
+        <Field label="Progress" type="number" value={form.progress} onChange={(value) => setForm({ ...form, progress: value })} />
+        <Field label="AI score" type="number" value={form.ai_score} onChange={(value) => setForm({ ...form, ai_score: value })} />
+        <Field label="Icon key" value={form.icon} onChange={(value) => setForm({ ...form, icon: value })} />
+        <Field label="Accent" type="color" value={form.color} onChange={(value) => setForm({ ...form, color: value })} />
+        <Field label="Soft bg" type="color" value={form.background} onChange={(value) => setForm({ ...form, background: value })} />
+        <Field label="Sort order" type="number" value={form.sort_order} onChange={(value) => setForm({ ...form, sort_order: value })} />
+        <Select label="Status" value={form.status} options={["draft", "published", "archived"]} onChange={(value) => setForm({ ...form, status: value })} />
+        <Field wide label="Description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} textarea />
+        <Field wide label="Coach line" value={form.coach_line} onChange={(value) => setForm({ ...form, coach_line: value })} />
+        <Field wide label="AI plan line" value={form.plan_line} onChange={(value) => setForm({ ...form, plan_line: value })} />
+        <div className="actions wide">
+          <button className="primary">{formId ? "Update course" : "Create course"}</button>
+          <button type="button" className="outline" onClick={() => { setFormId(""); setForm(emptyCourse); }}>Clear</button>
+        </div>
+      </form>
+
+      <DataTable
+        columns={["ID", "Course", "Subject", "Progress", "AI", "Status", "Actions"]}
+        rows={items.map((item) => [
+          item.id,
+          <button className="link-button" onClick={() => { setSelectedCourseId(String(item.id)); resetDetailForms(); }}>{item.title}</button>,
+          item.subject_title,
+          `${item.progress}%`,
+          item.ai_score,
+          <Badge value={item.status} />,
+          <div className="row-actions">
+            <button onClick={() => { setSelectedCourseId(String(item.id)); setFormId(item.id); setForm({ ...item, subject_id: item.subject_id }); }}>Edit</button>
+            <button onClick={() => { setSelectedCourseId(String(item.id)); resetDetailForms(); }}>Details</button>
+            <button className="danger" onClick={() => archive(item.id)}>Archive</button>
+          </div>
+        ])}
+      />
+
+      <div className="detail-shell">
+        <div className="detail-heading">
+          <div>
+            <p className="eyebrow">Course Detail Screen</p>
+            <h3>{detail?.course?.title || "Select a course"}</h3>
+          </div>
+          <button className="outline" onClick={() => loadDetail()}>{busy ? "Loading" : "Reload detail"}</button>
+        </div>
+
+        {detail && (
+          <>
+            <DetailCrud
+              title="Modules"
+              form={
+                <form className="mini-editor" onSubmit={saveModule}>
+                  <Field label="Title" value={moduleForm.title} onChange={(value) => setModuleForm({ ...moduleForm, title: value })} />
+                  <Field label="Lessons" type="number" value={moduleForm.lessons} onChange={(value) => setModuleForm({ ...moduleForm, lessons: value })} />
+                  <Field label="Duration" value={moduleForm.duration} onChange={(value) => setModuleForm({ ...moduleForm, duration: value })} />
+                  <Field label="Progress" type="number" value={moduleForm.progress} onChange={(value) => setModuleForm({ ...moduleForm, progress: value })} />
+                  <Select label="Locked" value={String(moduleForm.locked)} options={["false", "true"]} onChange={(value) => setModuleForm({ ...moduleForm, locked: value === "true" })} />
+                  <Field label="Order" type="number" value={moduleForm.sort_order} onChange={(value) => setModuleForm({ ...moduleForm, sort_order: value })} />
+                  <button className="primary">{moduleId ? "Update module" : "Add module"}</button>
+                </form>
+              }
+              table={<DataTable columns={["Title", "Lessons", "Progress", "Locked", "Actions"]} rows={detail.modules.map((item) => [item.title, item.lessons, `${item.progress}%`, String(item.locked), <RowActions edit={() => { setModuleId(item.id); setModuleForm(item); }} remove={() => removeDetail("module", item.id)} />])} />}
+            />
+
+            <DetailCrud
+              title="AI Tasks"
+              form={
+                <form className="mini-editor" onSubmit={saveTask}>
+                  <Field label="Title" value={taskForm.title} onChange={(value) => setTaskForm({ ...taskForm, title: value })} />
+                  <Field label="Duration" value={taskForm.duration} onChange={(value) => setTaskForm({ ...taskForm, duration: value })} />
+                  <Field label="Icon" value={taskForm.icon} onChange={(value) => setTaskForm({ ...taskForm, icon: value })} />
+                  <Field label="Boost" type="number" value={taskForm.score_boost} onChange={(value) => setTaskForm({ ...taskForm, score_boost: value })} />
+                  <Field label="Difficulty" value={taskForm.next_difficulty} onChange={(value) => setTaskForm({ ...taskForm, next_difficulty: value })} />
+                  <Field label="Order" type="number" value={taskForm.sort_order} onChange={(value) => setTaskForm({ ...taskForm, sort_order: value })} />
+                  <Field wide label="Subtitle" value={taskForm.subtitle} onChange={(value) => setTaskForm({ ...taskForm, subtitle: value })} />
+                  <Field label="Alert title" value={taskForm.alert_title} onChange={(value) => setTaskForm({ ...taskForm, alert_title: value })} />
+                  <Field wide label="Alert message" value={taskForm.alert_message} onChange={(value) => setTaskForm({ ...taskForm, alert_message: value })} />
+                  <button className="primary">{taskId ? "Update task" : "Add task"}</button>
+                </form>
+              }
+              table={<DataTable columns={["Task", "Duration", "Boost", "Difficulty", "Actions"]} rows={detail.tasks.map((item) => [item.title, item.duration, item.score_boost, item.next_difficulty, <RowActions edit={() => { setTaskId(item.id); setTaskForm(item); }} remove={() => removeDetail("task", item.id)} />])} />}
+            />
+
+            <DetailCrud
+              title="Learning Flow Questions"
+              form={
+                <form className="mini-editor" onSubmit={saveFlowQuestion}>
+                  <Field label="Mode" value={flowForm.mode} onChange={(value) => setFlowForm({ ...flowForm, mode: value })} />
+                  <Select label="Correct" value={flowForm.correct_option} options={["A", "B", "C", "D"]} onChange={(value) => setFlowForm({ ...flowForm, correct_option: value })} />
+                  <Field label="Order" type="number" value={flowForm.sort_order} onChange={(value) => setFlowForm({ ...flowForm, sort_order: value })} />
+                  <Field wide label="Prompt" value={flowForm.prompt} onChange={(value) => setFlowForm({ ...flowForm, prompt: value })} textarea />
+                  <Field label="A" value={flowForm.option_a} onChange={(value) => setFlowForm({ ...flowForm, option_a: value })} />
+                  <Field label="B" value={flowForm.option_b} onChange={(value) => setFlowForm({ ...flowForm, option_b: value })} />
+                  <Field label="C" value={flowForm.option_c} onChange={(value) => setFlowForm({ ...flowForm, option_c: value })} />
+                  <Field label="D" value={flowForm.option_d} onChange={(value) => setFlowForm({ ...flowForm, option_d: value })} />
+                  <Field wide label="Explanation" value={flowForm.explanation} onChange={(value) => setFlowForm({ ...flowForm, explanation: value })} textarea />
+                  <Field wide label="Hint" value={flowForm.hint} onChange={(value) => setFlowForm({ ...flowForm, hint: value })} />
+                  <Field wide label="Tags comma-separated" value={flowForm.tags_text} onChange={(value) => setFlowForm({ ...flowForm, tags_text: value })} />
+                  <button className="primary">{flowId ? "Update flow question" : "Add flow question"}</button>
+                </form>
+              }
+              table={<DataTable columns={["Mode", "Prompt", "Correct", "Tags", "Actions"]} rows={detail.questions.map((item) => [item.mode, item.prompt.slice(0, 90), item.correct_option, item.tags.join(", "), <RowActions edit={() => { setFlowId(item.id); setFlowForm({ ...item, tags_text: item.tags.join(", ") }); }} remove={() => removeDetail("question", item.id)} />])} />}
+            />
+
+            <DetailCrud
+              title="Weak Topics"
+              form={
+                <form className="mini-editor" onSubmit={saveMistake}>
+                  <Field label="Title" value={mistakeForm.title} onChange={(value) => setMistakeForm({ ...mistakeForm, title: value })} />
+                  <Field label="Order" type="number" value={mistakeForm.sort_order} onChange={(value) => setMistakeForm({ ...mistakeForm, sort_order: value })} />
+                  <Field wide label="Reason" value={mistakeForm.reason} onChange={(value) => setMistakeForm({ ...mistakeForm, reason: value })} />
+                  <button className="primary">{mistakeId ? "Update weak topic" : "Add weak topic"}</button>
+                </form>
+              }
+              table={<DataTable columns={["Title", "Reason", "Actions"]} rows={detail.mistakes.map((item) => [item.title, item.reason, <RowActions edit={() => { setMistakeId(item.id); setMistakeForm(item); }} remove={() => removeDetail("mistake", item.id)} />])} />}
+            />
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DetailCrud({ title, form, table }) {
+  return (
+    <section className="detail-card">
+      <h4>{title}</h4>
+      {form}
+      {table}
+    </section>
+  );
 }
 
 function Questions({ filters, setFilters, reload, items, form, setForm, formId, setFormId, save, reject }) {

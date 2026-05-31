@@ -117,6 +117,205 @@ CREATE TABLE IF NOT EXISTS syllabus_entries (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS web_scraper_sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    start_url TEXT NOT NULL UNIQUE,
+    allowed_domain TEXT NOT NULL DEFAULT '',
+    syllabus_category TEXT NOT NULL DEFAULT '',
+    max_depth INTEGER NOT NULL DEFAULT 1 CHECK (max_depth BETWEEN 0 AND 5),
+    max_pages INTEGER NOT NULL DEFAULT 25 CHECK (max_pages BETWEEN 1 AND 250),
+    refresh_minutes INTEGER NOT NULL DEFAULT 1440 CHECK (refresh_minutes BETWEEN 5 AND 10080),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (
+        status IN ('active', 'paused', 'archived')
+    ),
+    last_crawled_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_web_scraper_sources_status
+    ON web_scraper_sources (status, last_crawled_at);
+
+CREATE TABLE IF NOT EXISTS web_scraper_cache (
+    url TEXT PRIMARY KEY,
+    source_id INTEGER,
+    status_code INTEGER NOT NULL DEFAULT 0,
+    title TEXT NOT NULL DEFAULT '',
+    content_hash TEXT NOT NULL DEFAULT '',
+    etag TEXT NOT NULL DEFAULT '',
+    last_modified TEXT NOT NULL DEFAULT '',
+    text_content TEXT NOT NULL DEFAULT '',
+    fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    error TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY (source_id) REFERENCES web_scraper_sources(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_web_scraper_cache_source
+    ON web_scraper_cache (source_id, fetched_at DESC);
+
+CREATE TABLE IF NOT EXISTS web_scraper_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id INTEGER NOT NULL,
+    syllabus_entry_id INTEGER,
+    url TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    syllabus_category TEXT NOT NULL DEFAULT '',
+    extracted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (source_id) REFERENCES web_scraper_sources(id) ON DELETE CASCADE,
+    FOREIGN KEY (syllabus_entry_id) REFERENCES syllabus_entries(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_web_scraper_documents_category
+    ON web_scraper_documents (syllabus_category, last_seen_at DESC);
+
+CREATE TABLE IF NOT EXISTS web_scraper_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'running' CHECK (
+        status IN ('running', 'completed', 'failed')
+    ),
+    started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at TEXT,
+    pages_seen INTEGER NOT NULL DEFAULT 0,
+    pages_saved INTEGER NOT NULL DEFAULT 0,
+    pages_skipped INTEGER NOT NULL DEFAULT 0,
+    message TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY (source_id) REFERENCES web_scraper_sources(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_web_scraper_runs_started
+    ON web_scraper_runs (started_at DESC);
+
+CREATE TABLE IF NOT EXISTS learning_subjects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    icon TEXT NOT NULL DEFAULT 'school',
+    color TEXT NOT NULL DEFAULT '#635BFF',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'published' CHECK (
+        status IN ('draft', 'published', 'archived')
+    ),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_subjects_status
+    ON learning_subjects (status, sort_order, title);
+
+CREATE TABLE IF NOT EXISTS learning_courses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subject_id INTEGER NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    short_name TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL,
+    badge TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    coach_line TEXT NOT NULL DEFAULT '',
+    plan_line TEXT NOT NULL DEFAULT '',
+    teacher TEXT NOT NULL DEFAULT '',
+    lesson_count INTEGER NOT NULL DEFAULT 0 CHECK (lesson_count >= 0),
+    duration TEXT NOT NULL DEFAULT '',
+    level TEXT NOT NULL DEFAULT '',
+    progress INTEGER NOT NULL DEFAULT 0 CHECK (progress BETWEEN 0 AND 100),
+    ai_score INTEGER NOT NULL DEFAULT 0 CHECK (ai_score BETWEEN 0 AND 100),
+    icon TEXT NOT NULL DEFAULT 'book',
+    color TEXT NOT NULL DEFAULT '#635BFF',
+    background TEXT NOT NULL DEFAULT '#EEEAFE',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'published' CHECK (
+        status IN ('draft', 'published', 'archived')
+    ),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (subject_id) REFERENCES learning_subjects(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_courses_subject
+    ON learning_courses (subject_id, status, sort_order);
+
+CREATE INDEX IF NOT EXISTS idx_learning_courses_status
+    ON learning_courses (status, sort_order, title);
+
+CREATE TABLE IF NOT EXISTS learning_course_modules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    lessons INTEGER NOT NULL DEFAULT 0 CHECK (lessons >= 0),
+    duration TEXT NOT NULL DEFAULT '',
+    progress INTEGER NOT NULL DEFAULT 0 CHECK (progress BETWEEN 0 AND 100),
+    locked INTEGER NOT NULL DEFAULT 0 CHECK (locked IN (0, 1)),
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES learning_courses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_course_modules_course
+    ON learning_course_modules (course_id, sort_order, id);
+
+CREATE TABLE IF NOT EXISTS learning_course_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER,
+    title TEXT NOT NULL,
+    subtitle TEXT NOT NULL DEFAULT '',
+    duration TEXT NOT NULL DEFAULT '',
+    icon TEXT NOT NULL DEFAULT 'assignment',
+    score_boost INTEGER NOT NULL DEFAULT 0 CHECK (score_boost >= 0),
+    next_difficulty TEXT NOT NULL DEFAULT 'Adaptive',
+    alert_title TEXT NOT NULL DEFAULT '',
+    alert_message TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES learning_courses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_course_tasks_course
+    ON learning_course_tasks (course_id, sort_order, id);
+
+CREATE TABLE IF NOT EXISTS learning_course_questions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'Practice',
+    prompt TEXT NOT NULL,
+    option_a TEXT NOT NULL,
+    option_b TEXT NOT NULL,
+    option_c TEXT NOT NULL,
+    option_d TEXT NOT NULL,
+    correct_option TEXT NOT NULL CHECK (correct_option IN ('A', 'B', 'C', 'D')),
+    explanation TEXT NOT NULL DEFAULT '',
+    hint TEXT NOT NULL DEFAULT '',
+    tags_json TEXT NOT NULL DEFAULT '[]',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES learning_courses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_course_questions_course
+    ON learning_course_questions (course_id, sort_order, id);
+
+CREATE TABLE IF NOT EXISTS learning_course_mistakes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES learning_courses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_course_mistakes_course
+    ON learning_course_mistakes (course_id, sort_order, id);
+
 CREATE TABLE IF NOT EXISTS scan_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     scanned_text TEXT NOT NULL,
@@ -357,8 +556,15 @@ CREATE TABLE IF NOT EXISTS question_tag_links (
 CREATE INDEX IF NOT EXISTS idx_question_tag_links_tag
     ON question_tag_links (tag_id);
 
+CREATE TABLE IF NOT EXISTS cache_store (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_cache_store_expiry ON cache_store(expires_at);
+
 INSERT OR REPLACE INTO database_metadata (key, value)
 VALUES
     ('schema_version', '2'),
     ('database_kind', 'loksewa_offline_seed');
-

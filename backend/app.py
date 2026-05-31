@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
+import asyncio
 import hmac
 import json
 import logging
+import sqlite3
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,6 +35,11 @@ from backend.models import (
     SearchMatch,
     SearchRequest,
     SearchResponse,
+    ScrapedDocumentOut,
+    ScraperRunOut,
+    ScraperRunRequest,
+    ScraperSourceIn,
+    ScraperSourceOut,
     SyllabusIn,
     SyllabusOut,
     UserCreate,
@@ -46,29 +54,72 @@ from backend.models import (
     AiLessonOut,
     AiTutorAskIn,
     AiTutorAskOut,
+    CourseDetailOut,
+    CourseIn,
+    CourseMistakeIn,
+    CourseMistakeOut,
+    CourseModuleIn,
+    CourseModuleOut,
+    CourseQuestionIn,
+    CourseQuestionOut,
+    CourseTaskIn,
+    CourseTaskOut,
+    CourseOut,
+    SubjectIn,
+    SubjectOut,
 )
 from backend.repository import (
     answer_mock_question,
+    create_course,
+    create_course_mistake,
+    create_course_module,
+    create_course_question,
+    create_course_task,
     create_mock_attempt,
     create_mock_test,
+    create_scraper_source,
+    create_subject,
     create_user,
+    delete_course,
+    delete_course_mistake,
+    delete_course_module,
+    delete_course_question,
+    delete_course_task,
     delete_mock_test,
     delete_report,
+    archive_scraper_source,
+    delete_subject,
     delete_syllabus,
     delete_user,
+    get_course,
+    get_course_detail,
+    get_course_mistake,
+    get_course_module,
+    get_course_question,
+    get_course_task,
     get_mock_attempt,
     get_mock_test,
     get_question,
+    get_scraper_source_by_url,
     get_syllabus,
     get_user,
     get_user_by_email,
     get_user_stats,
     insert_question,
     insert_syllabus,
+    list_course_mistakes,
+    list_course_modules,
+    list_course_questions,
+    list_course_tasks,
+    list_courses,
     list_mock_tests,
     list_questions,
     list_questions_admin,
     list_reports,
+    list_scraped_documents,
+    list_scraper_runs,
+    list_scraper_sources,
+    list_subjects,
     list_syllabus,
     list_users,
     search_questions,
@@ -80,8 +131,15 @@ from backend.repository import (
     get_ai_lesson,
     ai_tutor_ask,
     update_mock_test,
+    update_course,
+    update_course_mistake,
+    update_course_module,
+    update_course_question,
+    update_course_task,
     update_question,
     update_report_status,
+    update_scraper_source,
+    update_subject,
     update_syllabus,
     update_user,
     utc_iso_now,
@@ -100,6 +158,7 @@ from backend.security import (
     validate_csrf_token,
     verify_password,
 )
+from backend.scraper import run_scraper
 from backend.settings import settings
 from backend.text import normalize_text
 
@@ -127,7 +186,34 @@ def startup() -> None:
         ensure_bootstrap_admin(connection)
         seed_sample_questions(connection)
         ensure_sample_mock_test(connection)
+        seed_learning_catalog(connection)
         seed_preparation_materials(connection)
+        ensure_scraper_sources(connection)
+
+
+def ensure_scraper_sources(connection) -> None:
+    for url in settings.scraper_target_urls:
+        if get_scraper_source_by_url(connection, url) is not None:
+            continue
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        name = domain.removeprefix("www.") or "Configured source"
+        try:
+            create_scraper_source(
+                connection,
+                ScraperSourceIn(
+                    name=f"{name} live updates",
+                    start_url=url,
+                    allowed_domain=domain,
+                    syllabus_category="",
+                    max_depth=1,
+                    max_pages=settings.scraper_max_pages_per_source,
+                    refresh_minutes=max(5, settings.scraper_refresh_interval_seconds // 60),
+                    status="active",
+                ),
+            )
+        except sqlite3.IntegrityError:
+            logger.info("Scraper source already exists for %s", url)
 
 
 def seed_preparation_materials(connection) -> None:
@@ -355,13 +441,265 @@ def ensure_sample_mock_test(connection) -> None:
         )
 
 
+def seed_learning_catalog(connection) -> None:
+    """Seed API-backed learning content used by the mobile course screens."""
+    existing = connection.execute("SELECT id FROM learning_subjects LIMIT 1").fetchone()
+    if existing is not None:
+        return
+
+    subjects = [
+        SubjectIn(slug="gk", title="General Knowledge", description="Static GK, current affairs, Nepal facts, science, history, and geography.", icon="public", color="#635BFF", sort_order=1),
+        SubjectIn(slug="iq", title="IQ and Reasoning", description="Patterns, series, analogy, coding, direction, and fast elimination practice.", icon="psychology", color="#10AFA2", sort_order=2),
+        SubjectIn(slug="law", title="Constitution and Law", description="Articles, rights, duties, governance bodies, and legal keyword traps.", icon="gavel", color="#F59E0B", sort_order=3),
+        SubjectIn(slug="admin", title="Public Administration", description="Policy, accountability, ethics, service delivery, and case-based decisions.", icon="business", color="#3B82F6", sort_order=4),
+    ]
+
+    subject_ids: dict[str, int] = {}
+    for subject in subjects:
+        created = create_subject(connection, subject)
+        subject_ids[subject.slug] = created.id
+
+    course_payloads = [
+        CourseIn(
+            subject_id=subject_ids["gk"],
+            slug="gk",
+            short_name="GK",
+            title="General Knowledge Mastery",
+            badge="Popular GK",
+            description="High-frequency facts, current affairs, science, geography, history, and Nepal-specific exam recall.",
+            coach_line="High-frequency facts, current affairs, and quick recall practice.",
+            plan_line="6 min fact review, 20 prediction questions, 8 flashcards, 1 mistake retry.",
+            teacher="Aruna Sharma",
+            lesson_count=45,
+            duration="8 weeks",
+            level="Officer",
+            progress=64,
+            ai_score=73,
+            icon="public",
+            color="#635BFF",
+            background="#EEEAFE",
+            sort_order=1,
+        ),
+        CourseIn(
+            subject_id=subject_ids["iq"],
+            slug="iq",
+            short_name="IQ",
+            title="IQ and Reasoning Accelerator",
+            badge="Speed Logic",
+            description="Pattern recognition, series, analogy, coding, direction, and elimination under exam timing.",
+            coach_line="Pattern recognition, series, analogy, and speed logic drills.",
+            plan_line="Warm up shortcuts, solve timed sets, explain wrong patterns, retry slow items.",
+            teacher="Rabin K.C.",
+            lesson_count=32,
+            duration="6 weeks",
+            level="Beginner",
+            progress=48,
+            ai_score=68,
+            icon="psychology",
+            color="#10AFA2",
+            background="#E4FAF7",
+            sort_order=2,
+        ),
+        CourseIn(
+            subject_id=subject_ids["law"],
+            slug="law",
+            short_name="Law",
+            title="Constitution and Law Essentials",
+            badge="Exam Trap",
+            description="Articles, rights, duties, governance structure, commissions, and negative wording traps.",
+            coach_line="Articles, rights, governance structure, and keyword traps.",
+            plan_line="Article recall, keyword trap practice, provision mapping, and mini mock.",
+            teacher="Maya Adhikari",
+            lesson_count=28,
+            duration="5 weeks",
+            level="Intermediate",
+            progress=42,
+            ai_score=61,
+            icon="gavel",
+            color="#F59E0B",
+            background="#FFF4D8",
+            sort_order=3,
+        ),
+        CourseIn(
+            subject_id=subject_ids["admin"],
+            slug="admin",
+            short_name="Admin",
+            title="Public Administration Practice",
+            badge="Policy Skill",
+            description="Administration principles, accountability, public service delivery, policy cycle, and practical cases.",
+            coach_line="Policy, management, accountability, and service delivery concepts.",
+            plan_line="Concept review, scenario selection, weak term flashcards, and case retry.",
+            teacher="Suman Bista",
+            lesson_count=24,
+            duration="4 weeks",
+            level="Officer",
+            progress=37,
+            ai_score=58,
+            icon="business",
+            color="#3B82F6",
+            background="#E8F1FF",
+            sort_order=4,
+        ),
+    ]
+
+    courses = {payload.slug: create_course(connection, payload) for payload in course_payloads}
+
+    modules = {
+        "gk": [
+            ("Nepal geography and history", 12, "1 hr 45 min", 80, False),
+            ("Current affairs recall", 10, "1 hr 20 min", 54, False),
+            ("Science and technology facts", 11, "1 hr 30 min", 28, False),
+            ("Mixed GK mock confirmation", 12, "2 hr", 0, True),
+        ],
+        "iq": [
+            ("Number and letter series", 8, "1 hr", 65, False),
+            ("Analogy and classification", 8, "1 hr 10 min", 44, False),
+            ("Direction and coding", 8, "1 hr 15 min", 22, False),
+            ("Timed reasoning mock", 8, "1 hr 30 min", 0, True),
+        ],
+        "law": [
+            ("Fundamental rights and duties", 8, "1 hr 15 min", 58, False),
+            ("State structure and bodies", 7, "1 hr", 38, False),
+            ("Article number recall", 7, "55 min", 18, False),
+            ("Negative keyword practice", 6, "50 min", 0, True),
+        ],
+        "admin": [
+            ("Administration principles", 7, "1 hr", 48, False),
+            ("Accountability and ethics", 6, "45 min", 36, False),
+            ("Policy cycle", 5, "40 min", 18, False),
+            ("Applied case practice", 6, "1 hr", 0, True),
+        ],
+    }
+
+    for slug, rows in modules.items():
+        for index, (title, lessons, duration, progress, locked) in enumerate(rows, start=1):
+            create_course_module(
+                connection,
+                courses[slug].id,
+                CourseModuleIn(title=title, lessons=lessons, duration=duration, progress=progress, locked=locked, sort_order=index),
+            )
+
+    task_rows = [
+        ("gk", "Daily Prediction Set", "20 high-frequency GK questions with instant answer reasoning.", "12 min", "question_answer", 3, "Medium", "GK set ready", "AI will score recall speed and flag current affairs that need spaced revision."),
+        ("gk", "Rapid Fact Flashcards", "Memorize dates, institutions, awards, geography, and science facts.", "7 min", "bookmark", 2, "Easy", "Flashcards ready", "Slow cards will be pinned to tomorrow's revision queue."),
+        ("iq", "Speed Reasoning Drill", "Series, analogy, coding, direction, and odd-one-out under time.", "15 min", "timer", 4, "Hard", "Speed drill ready", "AI will mark time pressure, skipped steps, and shortcut opportunities."),
+        ("iq", "Step-by-step Logic", "See why each option fails before selecting the final answer.", "9 min", "insights", 3, "Medium", "Logic flow ready", "The coach compares your reasoning path with the optimal shortcut."),
+        ("law", "Article Recall Sprint", "Practice Constitution article numbers, rights, duties, and bodies.", "11 min", "gavel", 4, "Hard", "Law recall ready", "AI will detect article sequence confusion and generate a smaller recall chain."),
+        ("law", "Keyword Trap Practice", "Train on except, not, only, and similar exam wording traps.", "8 min", "error", 3, "Medium", "Keyword traps ready", "Wrong answers are grouped by trap type so you can retry with better attention."),
+        ("admin", "Policy Concept Drill", "Connect administration principles with real Loksewa-style examples.", "13 min", "business", 3, "Medium", "Policy drill ready", "AI will compare theory recall against applied scenario selection."),
+        ("admin", "Case Explanation", "Read a short case and select the most accountable decision.", "10 min", "book", 4, "Hard", "Case flow ready", "The coach explains why each distractor looks attractive but fails the rule."),
+        (None, "Mini Mock Confirmation", "10 mixed questions to verify whether today's learning actually stuck.", "10 min", "assignment", 5, "Adaptive", "Mini mock ready", "The next mini mock mixes strong and weak topics so the score is not inflated."),
+    ]
+
+    for index, (slug, title, subtitle, duration, icon, score_boost, next_difficulty, alert_title, alert_message) in enumerate(task_rows, start=1):
+        create_course_task(
+            connection,
+            CourseTaskIn(
+                course_id=None if slug is None else courses[slug].id,
+                title=title,
+                subtitle=subtitle,
+                duration=duration,
+                icon=icon,
+                score_boost=score_boost,
+                next_difficulty=next_difficulty,
+                alert_title=alert_title,
+                alert_message=alert_message,
+                sort_order=index,
+            ),
+        )
+
+    question_rows = {
+        "gk": [
+            ("Learn and Practice", "Which method gives the strongest long-term recall for static GK facts?", "Only reading the same page many times", "Spaced active recall with short flashcards", "Watching one long lecture without practice", "Solving only full mocks", "B", "Spaced active recall forces retrieval and repeats weak facts over time. That is why the AI plan turns slow or wrong facts into tomorrow's cards.", "Think about a method that makes your brain retrieve the fact, not just see it again.", ["Recall", "Flashcard"]),
+            ("Prediction Set", "In a GK exam, what should the AI mark as a weak signal after practice?", "Only wrong answers", "Wrong answers and slow correct answers", "Only skipped questions", "Only questions from history", "B", "A slow correct answer still means recall is fragile. The flow treats it as review material before it becomes a wrong answer under pressure.", "A correct answer can still be risky when it takes too long.", ["Speed", "Weakness"]),
+        ],
+        "iq": [
+            ("Speed Drill", "What is the first check in a number series question?", "Guess from the options", "Difference, ratio, alternating pattern, then position logic", "Always multiply by two", "Skip the question immediately", "B", "A stable check order avoids wasting time. The AI flow records where your reasoning slowed down.", "Look for a repeatable checklist, not a single formula.", ["Shortcut", "Speed"]),
+            ("Reasoning", "Why should you review wrong reasoning paths, not only final answers?", "It reveals the trap that caused the wrong answer", "It makes every question longer", "It removes the need for mocks", "It only helps vocabulary", "A", "Reasoning questions are won by path quality. AI feedback turns wrong paths into shorter retry drills.", "The answer alone does not show where your logic failed.", ["Trap", "Retry"]),
+        ],
+        "law": [
+            ("Keyword Trap", "What is the safest first action in a negative law question?", "Ignore the negative word", "Circle the negative keyword and eliminate true statements", "Choose the longest option", "Skip all article questions", "B", "Negative wording changes the task. The AI flow separates keyword mistakes from knowledge mistakes.", "The question is asking for an exception, not the usual true statement.", ["Keyword", "Law"]),
+            ("Article Recall", "Why does article recall need small chains instead of one big list?", "Small chains reduce sequence confusion", "Big lists are always faster", "Articles are not asked in exams", "It removes the need to revise", "A", "Short chains keep related provisions together and reduce article-number swapping.", "Think about preventing one provision from being mixed with another.", ["Recall", "Article"]),
+        ],
+        "admin": [
+            ("Case Practice", "How is accountability different from transparency?", "They mean exactly the same thing", "Transparency is visibility, accountability is responsibility for action and result", "Accountability only means publishing data", "Transparency only applies to private offices", "B", "Many administration questions use close concepts. AI feedback flags term confusion and gives a contrast card.", "One term is about seeing action, the other is about being answerable for it.", ["Concept", "Contrast"]),
+            ("Policy Drill", "Which step comes after policy implementation in a simple policy cycle?", "Evaluation", "Problem identification", "Agenda setting", "Drafting only", "A", "Implementation is followed by evaluation so the result can be measured and adjusted.", "After doing the policy, the system needs to check the result.", ["Policy", "Sequence"]),
+        ],
+    }
+
+    for slug, rows in question_rows.items():
+        for index, row in enumerate(rows, start=1):
+            mode, prompt, option_a, option_b, option_c, option_d, correct_option, explanation, hint, tags = row
+            create_course_question(
+                connection,
+                courses[slug].id,
+                CourseQuestionIn(
+                    mode=mode,
+                    prompt=prompt,
+                    option_a=option_a,
+                    option_b=option_b,
+                    option_c=option_c,
+                    option_d=option_d,
+                    correct_option=correct_option,
+                    explanation=explanation,
+                    hint=hint,
+                    tags=tags,
+                    sort_order=index,
+                ),
+            )
+
+    mistake_rows = [
+        ("gk", "Federalism fact mix-up", "Province and local level powers confused"),
+        ("gk", "Current affairs recall", "Slow recall on recent appointments"),
+        ("iq", "Number series shortcut", "Used long calculation instead of pattern"),
+        ("iq", "Direction sense trap", "Skipped final orientation check"),
+        ("law", "Article sequence recall", "Article number and provision mismatch"),
+        ("law", "Except keyword missed", "Selected true statement in negative question"),
+        ("admin", "Accountability concept", "Mixed transparency with responsibility"),
+        ("admin", "Policy cycle order", "Evaluation placed before implementation"),
+    ]
+    for index, (slug, title, reason) in enumerate(mistake_rows, start=1):
+        create_course_mistake(
+            connection,
+            courses[slug].id,
+            CourseMistakeIn(title=title, reason=reason, sort_order=index),
+        )
+
+    logger.info("Seeded %d learning courses for API-backed mobile screens", len(courses))
+
+
+async def scraper_refresh_loop() -> None:
+    def run_due_sources() -> None:
+        with get_connection() as connection:
+            run_scraper(connection, due_only=True)
+
+    await asyncio.sleep(3)
+    while True:
+        try:
+            await asyncio.to_thread(run_due_sources)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Background scraper refresh failed")
+        await asyncio.sleep(settings.scraper_refresh_interval_seconds)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # Validate settings on startup (fail-fast for security issues)
     from backend.settings import validate_settings
     validate_settings()
     startup()
-    yield
+    scraper_task = asyncio.create_task(scraper_refresh_loop()) if settings.scraper_enabled else None
+    try:
+        yield
+    finally:
+        if scraper_task is not None:
+            scraper_task.cancel()
+            try:
+                await scraper_task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(
@@ -685,6 +1023,30 @@ def public_mock_tests(limit: int = Query(default=100, ge=1, le=500)) -> list[Moc
         return list_mock_tests(connection, status="published", limit=limit)
 
 
+@app.get("/v1/subjects", response_model=list[SubjectOut])
+def public_subjects(limit: int = Query(default=100, ge=1, le=500)) -> list[SubjectOut]:
+    with get_connection() as connection:
+        return list_subjects(connection, status="published", limit=limit)
+
+
+@app.get("/v1/courses", response_model=list[CourseOut])
+def public_courses(
+    subject_id: int | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[CourseOut]:
+    with get_connection() as connection:
+        return list_courses(connection, subject_id=subject_id, status="published", limit=limit)
+
+
+@app.get("/v1/courses/{course_identifier}", response_model=CourseDetailOut)
+def public_course_detail(course_identifier: str) -> CourseDetailOut:
+    with get_connection() as connection:
+        detail = get_course_detail(connection, course_identifier, published_only=True)
+    if detail is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Published course not found")
+    return detail
+
+
 @app.post("/v1/mock-tests/{mock_test_id}/start", response_model=MockAttemptOut, status_code=status.HTTP_201_CREATED)
 def start_mock_test(mock_test_id: int, user: UserOut = Depends(get_current_user)) -> MockAttemptOut:
     with get_connection() as connection:
@@ -769,6 +1131,430 @@ def create_report(payload: ReportRequest) -> ReportResponse:
         )
         report_id = int(cursor.lastrowid)
     return ReportResponse(report_id=report_id, status="open")
+
+
+@app.get(
+    "/v1/admin/scraper/sources",
+    response_model=list[ScraperSourceOut],
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_list_scraper_sources(
+    source_status: str | None = None,
+    due_only: bool = False,
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> list[ScraperSourceOut]:
+    with get_connection() as connection:
+        return list_scraper_sources(connection, status=source_status, due_only=due_only, limit=limit)
+
+
+@app.post(
+    "/v1/admin/scraper/sources",
+    response_model=ScraperSourceOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_create_scraper_source(payload: ScraperSourceIn) -> ScraperSourceOut:
+    try:
+        with get_connection() as connection:
+            return create_scraper_source(connection, payload)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Scraper source could not be saved: {exc}") from exc
+
+
+@app.put(
+    "/v1/admin/scraper/sources/{source_id}",
+    response_model=ScraperSourceOut,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_update_scraper_source(source_id: int, payload: ScraperSourceIn) -> ScraperSourceOut:
+    try:
+        with get_connection() as connection:
+            updated = update_scraper_source(connection, source_id, payload)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Scraper source could not be saved: {exc}") from exc
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scraper source not found")
+    return updated
+
+
+@app.delete(
+    "/v1/admin/scraper/sources/{source_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_archive_scraper_source(source_id: int) -> Response:
+    with get_connection() as connection:
+        archived = archive_scraper_source(connection, source_id)
+    if not archived:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scraper source not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.post(
+    "/v1/admin/scraper/run",
+    response_model=list[ScraperRunOut],
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_run_scraper(payload: ScraperRunRequest) -> list[ScraperRunOut]:
+    with get_connection() as connection:
+        runs = run_scraper(
+            connection,
+            source_id=payload.source_id,
+            due_only=False,
+            max_pages=payload.max_pages,
+        )
+    if payload.source_id is not None and not runs:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active scraper source not found")
+    return runs
+
+
+@app.get(
+    "/v1/admin/scraper/runs",
+    response_model=list[ScraperRunOut],
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_list_scraper_runs(limit: int = Query(default=100, ge=1, le=500)) -> list[ScraperRunOut]:
+    with get_connection() as connection:
+        return list_scraper_runs(connection, limit=limit)
+
+
+@app.get(
+    "/v1/admin/scraper/documents",
+    response_model=list[ScrapedDocumentOut],
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_list_scraped_documents(
+    source_id: int | None = None,
+    category: str | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> list[ScrapedDocumentOut]:
+    with get_connection() as connection:
+        return list_scraped_documents(connection, source_id=source_id, category=category, limit=limit)
+
+
+@app.get(
+    "/v1/admin/subjects",
+    response_model=list[SubjectOut],
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_list_subjects(
+    subject_status: str | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> list[SubjectOut]:
+    with get_connection() as connection:
+        return list_subjects(connection, status=subject_status, limit=limit)
+
+
+@app.post(
+    "/v1/admin/subjects",
+    response_model=SubjectOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_create_subject(payload: SubjectIn) -> SubjectOut:
+    try:
+        with get_connection() as connection:
+            return create_subject(connection, payload)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Subject could not be saved: {exc}") from exc
+
+
+@app.put(
+    "/v1/admin/subjects/{subject_id}",
+    response_model=SubjectOut,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_update_subject(subject_id: int, payload: SubjectIn) -> SubjectOut:
+    try:
+        with get_connection() as connection:
+            updated = update_subject(connection, subject_id, payload)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Subject could not be saved: {exc}") from exc
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subject not found")
+    return updated
+
+
+@app.delete(
+    "/v1/admin/subjects/{subject_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_delete_subject(subject_id: int) -> Response:
+    with get_connection() as connection:
+        deleted = delete_subject(connection, subject_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subject not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.get(
+    "/v1/admin/courses",
+    response_model=list[CourseOut],
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_list_courses(
+    subject_id: int | None = None,
+    course_status: str | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> list[CourseOut]:
+    with get_connection() as connection:
+        return list_courses(connection, subject_id=subject_id, status=course_status, limit=limit)
+
+
+@app.post(
+    "/v1/admin/courses",
+    response_model=CourseOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_create_course(payload: CourseIn) -> CourseOut:
+    try:
+        with get_connection() as connection:
+            return create_course(connection, payload)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Course could not be saved: {exc}") from exc
+
+
+@app.get(
+    "/v1/admin/courses/{course_id}/detail",
+    response_model=CourseDetailOut,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_course_detail(course_id: int) -> CourseDetailOut:
+    with get_connection() as connection:
+        detail = get_course_detail(connection, str(course_id), published_only=False)
+    if detail is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+    return detail
+
+
+@app.put(
+    "/v1/admin/courses/{course_id}",
+    response_model=CourseOut,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_update_course(course_id: int, payload: CourseIn) -> CourseOut:
+    try:
+        with get_connection() as connection:
+            updated = update_course(connection, course_id, payload)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Course could not be saved: {exc}") from exc
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+    return updated
+
+
+@app.delete(
+    "/v1/admin/courses/{course_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_delete_course(course_id: int) -> Response:
+    with get_connection() as connection:
+        deleted = delete_course(connection, course_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.get(
+    "/v1/admin/courses/{course_id}/modules",
+    response_model=list[CourseModuleOut],
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_list_course_modules(course_id: int) -> list[CourseModuleOut]:
+    with get_connection() as connection:
+        return list_course_modules(connection, course_id)
+
+
+@app.post(
+    "/v1/admin/courses/{course_id}/modules",
+    response_model=CourseModuleOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_create_course_module(course_id: int, payload: CourseModuleIn) -> CourseModuleOut:
+    with get_connection() as connection:
+        if get_course(connection, course_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+        return create_course_module(connection, course_id, payload)
+
+
+@app.put(
+    "/v1/admin/course-modules/{module_id}",
+    response_model=CourseModuleOut,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_update_course_module(module_id: int, payload: CourseModuleIn) -> CourseModuleOut:
+    with get_connection() as connection:
+        updated = update_course_module(connection, module_id, payload)
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course module not found")
+    return updated
+
+
+@app.delete(
+    "/v1/admin/course-modules/{module_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_delete_course_module(module_id: int) -> Response:
+    with get_connection() as connection:
+        deleted = delete_course_module(connection, module_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course module not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.get(
+    "/v1/admin/courses/{course_id}/tasks",
+    response_model=list[CourseTaskOut],
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_list_course_tasks(course_id: int) -> list[CourseTaskOut]:
+    with get_connection() as connection:
+        return list_course_tasks(connection, course_id)
+
+
+@app.post(
+    "/v1/admin/courses/{course_id}/tasks",
+    response_model=CourseTaskOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_create_course_task(course_id: int, payload: CourseTaskIn) -> CourseTaskOut:
+    with get_connection() as connection:
+        if get_course(connection, course_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+        return create_course_task(connection, payload.model_copy(update={"course_id": course_id}))
+
+
+@app.put(
+    "/v1/admin/course-tasks/{task_id}",
+    response_model=CourseTaskOut,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_update_course_task(task_id: int, payload: CourseTaskIn) -> CourseTaskOut:
+    try:
+        with get_connection() as connection:
+            updated = update_course_task(connection, task_id, payload)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Course task could not be saved: {exc}") from exc
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course task not found")
+    return updated
+
+
+@app.delete(
+    "/v1/admin/course-tasks/{task_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_delete_course_task(task_id: int) -> Response:
+    with get_connection() as connection:
+        deleted = delete_course_task(connection, task_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course task not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.get(
+    "/v1/admin/courses/{course_id}/questions",
+    response_model=list[CourseQuestionOut],
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_list_course_questions(course_id: int) -> list[CourseQuestionOut]:
+    with get_connection() as connection:
+        return list_course_questions(connection, course_id)
+
+
+@app.post(
+    "/v1/admin/courses/{course_id}/questions",
+    response_model=CourseQuestionOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_create_course_question(course_id: int, payload: CourseQuestionIn) -> CourseQuestionOut:
+    with get_connection() as connection:
+        if get_course(connection, course_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+        return create_course_question(connection, course_id, payload)
+
+
+@app.put(
+    "/v1/admin/course-questions/{question_id}",
+    response_model=CourseQuestionOut,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_update_course_question(question_id: int, payload: CourseQuestionIn) -> CourseQuestionOut:
+    with get_connection() as connection:
+        updated = update_course_question(connection, question_id, payload)
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course question not found")
+    return updated
+
+
+@app.delete(
+    "/v1/admin/course-questions/{question_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_delete_course_question(question_id: int) -> Response:
+    with get_connection() as connection:
+        deleted = delete_course_question(connection, question_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course question not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.get(
+    "/v1/admin/courses/{course_id}/mistakes",
+    response_model=list[CourseMistakeOut],
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_list_course_mistakes(course_id: int) -> list[CourseMistakeOut]:
+    with get_connection() as connection:
+        return list_course_mistakes(connection, course_id)
+
+
+@app.post(
+    "/v1/admin/courses/{course_id}/mistakes",
+    response_model=CourseMistakeOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_create_course_mistake(course_id: int, payload: CourseMistakeIn) -> CourseMistakeOut:
+    with get_connection() as connection:
+        if get_course(connection, course_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+        return create_course_mistake(connection, course_id, payload)
+
+
+@app.put(
+    "/v1/admin/course-mistakes/{mistake_id}",
+    response_model=CourseMistakeOut,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_update_course_mistake(mistake_id: int, payload: CourseMistakeIn) -> CourseMistakeOut:
+    with get_connection() as connection:
+        updated = update_course_mistake(connection, mistake_id, payload)
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course mistake not found")
+    return updated
+
+
+@app.delete(
+    "/v1/admin/course-mistakes/{mistake_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_delete_course_mistake(mistake_id: int) -> Response:
+    with get_connection() as connection:
+        deleted = delete_course_mistake(connection, mistake_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course mistake not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.get(

@@ -1,21 +1,57 @@
 package com.loksewa.aiapp.ui.screens.mocktest
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.loksewa.aiapp.ui.components.NeuriseCard
+import com.loksewa.aiapp.ui.components.NeuriseIconButton
+import com.loksewa.aiapp.ui.components.NeuriseMetric
+import com.loksewa.aiapp.ui.components.NeurisePrimaryButton
+import com.loksewa.aiapp.ui.components.NeuriseScreenSurface
 import com.loksewa.aiapp.ui.components.OptionButton
-import com.loksewa.aiapp.ui.theme.*
+import com.loksewa.aiapp.ui.theme.AccentGreen
+import com.loksewa.aiapp.ui.theme.BorderLight
+import com.loksewa.aiapp.ui.theme.BrandBlue
+import com.loksewa.aiapp.ui.theme.BrandOrange
+import com.loksewa.aiapp.ui.theme.BrandViolet
+import com.loksewa.aiapp.ui.theme.PrimaryGlow
+import com.loksewa.aiapp.ui.theme.StatusError
+import com.loksewa.aiapp.ui.theme.SurfaceLight
+import com.loksewa.aiapp.ui.theme.SurfaceWarm
+import com.loksewa.aiapp.ui.theme.TextPrimaryLight
+import com.loksewa.aiapp.ui.theme.TextSecondaryLight
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TestResultsScreen(
     attemptId: Int,
@@ -28,165 +64,164 @@ fun TestResultsScreen(
         viewModel.loadAttemptResults(attemptId)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Exam Results", color = TextPrimary) },
-                actions = {
-                    IconButton(onClick = onHomeClick) {
-                        Icon(
-                            imageVector = Icons.Default.Home,
-                            contentDescription = "Home",
-                            tint = TextPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceBlue)
-            )
-        },
-        containerColor = PrimaryBackground
-    ) { paddingValues ->
+    NeuriseScreenSurface {
         if (state.isLoading || state.attempt == null || state.mockTest == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = PrimaryBlue)
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = BrandViolet)
             }
         } else {
             val attempt = state.attempt!!
-            val mockTest = state.mockTest!!
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp)
                     .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Card(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column {
+                        Text(
+                            text = "Exam Results",
+                            color = TextPrimaryLight,
+                            fontSize = 25.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            text = state.mockTest?.title ?: "Mock test review",
+                            color = TextSecondaryLight,
+                            fontSize = 12.sp,
+                            maxLines = 1
+                        )
+                    }
+                    NeuriseIconButton(
+                        icon = Icons.Default.Home,
+                        contentDescription = "Home",
+                        onClick = onHomeClick
+                    )
+                }
+
+                NeuriseCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 30,
+                    contentPadding = PaddingValues(20.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(74.dp)
+                                .clip(CircleShape)
+                                .background(Brush.linearGradient(listOf(BrandViolet, PrimaryGlow))),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.WorkspacePremium, contentDescription = null, tint = SurfaceLight, modifier = Modifier.size(34.dp))
+                        }
+                        Spacer(modifier = Modifier.height(14.dp))
                         Text(
                             text = "Your Score",
-                            color = TextSecondary,
-                            fontSize = 14.sp
+                            color = TextSecondaryLight,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = String.format("%.2f / %.2f", attempt.score, attempt.totalMarks),
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = PrimaryBlue,
-                            fontWeight = FontWeight.Bold
+                            text = String.format("%.1f / %.1f", attempt.score, attempt.totalMarks),
+                            color = BrandViolet,
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Black
                         )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
+                        Spacer(modifier = Modifier.height(18.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(70.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Correct", color = TextSecondary, fontSize = 12.sp)
-                                Text("${attempt.correctCount}", color = StatusSuccess, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Wrong", color = TextSecondary, fontSize = 12.sp)
-                                Text("${attempt.wrongCount}", color = StatusError, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Unanswered", color = TextSecondary, fontSize = 12.sp)
-                                Text("${attempt.unansweredCount}", color = TextSecondary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            }
+                            NeuriseMetric("Correct", "${attempt.correctCount}", Modifier.weight(1f), AccentGreen)
+                            NeuriseMetric("Wrong", "${attempt.wrongCount}", Modifier.weight(1f), StatusError)
+                            NeuriseMetric("Skipped", "${attempt.unansweredCount}", Modifier.weight(1f), BrandOrange)
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
                 Text(
                     text = "Question Review",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
+                    color = TextPrimaryLight,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
 
                 state.questions.forEachIndexed { index, question ->
                     val answer = state.answers.firstOrNull { it.questionId == question.id }
                     val selected = answer?.selectedOption
 
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+                    NeuriseCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = 22,
+                        contentPadding = PaddingValues(16.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Q${index + 1}. ${question.questionText}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextPrimary,
-                                fontWeight = FontWeight.Bold
+                        Text(
+                            text = "Q${index + 1}. ${question.questionText}",
+                            color = TextPrimaryLight,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Black
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        val options = listOf(
+                            Triple("A", question.optionA, "A"),
+                            Triple("B", question.optionB, "B"),
+                            Triple("C", question.optionC, "C"),
+                            Triple("D", question.optionD, "D")
+                        )
+
+                        options.forEach { (letter, text, value) ->
+                            val isCorrectOption = value == question.correctOption
+                            val isSelectedOption = value == selected
+                            val isWrong = isSelectedOption && !isCorrectOption
+
+                            OptionButton(
+                                optionLetter = letter,
+                                optionText = text,
+                                isSelected = isSelectedOption,
+                                isCorrectAnswer = if (isCorrectOption) true else null,
+                                isWrongAnswer = if (isWrong) true else null,
+                                onClick = {}
                             )
+                        }
 
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            val options = listOf(
-                                Triple("A", question.optionA, "A"),
-                                Triple("B", question.optionB, "B"),
-                                Triple("C", question.optionC, "C"),
-                                Triple("D", question.optionD, "D")
-                            )
-
-                            options.forEach { (letter, text, value) ->
-                                val isCorrectOption = value == question.correctOption
-                                val isSelectedOption = value == selected
-                                val isWrong = isSelectedOption && !isCorrectOption
-
-                                OptionButton(
-                                    optionLetter = letter,
-                                    optionText = text,
-                                    isSelected = isSelectedOption,
-                                    isCorrectAnswer = if (isCorrectOption) true else null,
-                                    isWrongAnswer = if (isWrong) true else null,
-                                    onClick = {}
-                                )
-                            }
-
-                            if (!question.explanation.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.height(8.dp))
+                        if (!question.explanation.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(15.dp))
+                                    .background(SurfaceWarm)
+                                    .border(1.dp, BorderLight, RoundedCornerShape(15.dp))
+                                    .padding(12.dp)
+                            ) {
                                 Text(
-                                    text = "Explanation: ${question.explanation}",
-                                    color = TextSecondary,
+                                    text = question.explanation,
+                                    color = TextSecondaryLight,
                                     fontSize = 13.sp,
-                                    lineHeight = 18.sp
+                                    lineHeight = 19.sp
                                 )
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Button(
-                    onClick = onHomeClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-                ) {
-                    Text("Return to Home", style = MaterialTheme.typography.titleMedium, color = PrimaryDark)
-                }
+                NeurisePrimaryButton(
+                    text = "Return to Home",
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onHomeClick
+                )
             }
         }
     }

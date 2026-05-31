@@ -2,45 +2,67 @@ package com.loksewa.aiapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary palette — deep navy + electric blue
-val PrimaryBlue    = Color(0xFF4F8EF7)
-val PrimaryGlow    = Color(0xFF6FA8FF)
-val PrimaryDark    = Color(0xFF0A0F1E)
-val PrimaryBackground = Color(0xFF070C18)
+// Neurise-inspired light learning palette.
+val BrandViolet      = Color(0xFF6357F6)
+val BrandVioletDark  = Color(0xFF4038C9)
+val BrandVioletLight = Color(0xFFF0EEFF)
+val BrandBlue        = Color(0xFF5B8CFF)
+val BrandBlueLight   = Color(0xFFEDF3FF)
+val BrandOrange      = Color(0xFFF59E0B)
+val BrandOrangeLight = Color(0xFFFFF3DF)
+val BrandTeal        = Color(0xFF0E8478)
+val BrandTealLight   = Color(0xFFE4F7F4)
 
-// Gradient stops
-val GradientStart  = Color(0xFF0D1B3E)
-val GradientMid    = Color(0xFF0A1628)
-val GradientEnd    = Color(0xFF070C18)
+val LavenderCanvas   = Color(0xFFC8C5FF)
+val LavenderWave     = Color(0xFFDCD9FF)
+val LavenderMist     = Color(0xFFF3F1FF)
+val SoftLilac        = Color(0xFFE9E7FF)
 
-// Surface layers
-val SurfaceBlue    = Color(0xFF0F1929)
-val SurfaceCard    = Color(0xFF141E33)
-val SurfaceElevated = Color(0xFF1A2540)
-val SurfaceGlass   = Color(0x1AFFFFFF)   // 10% white glass
-val SurfaceGlassBorder = Color(0x33FFFFFF) // 20% white border
+val BackgroundLight  = Color(0xFFFAF9FF)
+val SurfaceLight     = Color(0xFFFFFBFF)
+val SurfaceWarm      = Color(0xFFF8F7FC)
+val BorderLight      = Color(0xFFE7E6F3)
 
-// Text
-val TextPrimary    = Color(0xFFFFFFFF)
-val TextSecondary  = Color(0xFF8B9DC3)
-val TextTertiary   = Color(0xFF4A5778)
-val TextHint       = Color(0xFF3A4560)
+val TextPrimaryLight   = Color(0xFF171625)
+val TextSecondaryLight = Color(0xFF66647A)
+val TextTertiaryLight  = Color(0xFFAAA8B9)
 
-// Accent colors
-val AccentGold     = Color(0xFFFFB347)
-val AccentGreen    = Color(0xFF00D4AA)
-val AccentRed      = Color(0xFFFF5C7A)
-val AccentPurple   = Color(0xFFA78BFA)
-val AccentCyan     = Color(0xFF38BDF8)
+val DarkForestGreen    = BrandTeal
+val TextFlashcard      = SurfaceLight
 
-// Status
-val StatusSuccess  = Color(0xFF00D4AA)
-val StatusWarning  = Color(0xFFFFB347)
-val StatusError    = Color(0xFFFF5C7A)
-val StatusInfo     = Color(0xFF4F8EF7)
+// Legacy compatibility fallbacks mapped to the refreshed system.
+val PrimaryBlue        = BrandViolet
+val PrimaryGlow        = Color(0xFF8A7CFF)
+val PrimaryDark        = TextPrimaryLight
+val PrimaryBackground  = BackgroundLight
 
-// Badge colors
-val VerifiedBadgeBackground = Color(0xFF0A2A1F)
-val VerifiedBadgeText       = Color(0xFF00D4AA)
-val AiBadgeBackground       = Color(0xFF2A1800)
-val AiBadgeText             = Color(0xFFFFB347)
+val GradientStart      = LavenderCanvas
+val GradientMid        = LavenderMist
+val GradientEnd        = BackgroundLight
+
+val SurfaceBlue        = SurfaceLight
+val SurfaceCard        = SurfaceLight
+val SurfaceElevated    = Color(0xFFF1F0F9)
+val SurfaceGlass       = Color(0x146357F6)
+val SurfaceGlassBorder = Color(0x226357F6)
+
+val TextPrimary        = TextPrimaryLight
+val TextSecondary      = TextSecondaryLight
+val TextTertiary       = TextTertiaryLight
+val TextHint           = TextTertiaryLight
+
+val AccentGold         = BrandOrange
+val AccentGreen        = Color(0xFF18B989)
+val AccentRed          = Color(0xFFE65353)
+val AccentPurple       = BrandViolet
+val AccentCyan         = Color(0xFF20C7D9)
+
+val StatusSuccess      = AccentGreen
+val StatusWarning      = BrandOrange
+val StatusError        = AccentRed
+val StatusInfo         = BrandBlue
+
+val VerifiedBadgeBackground = Color(0xFFE1FAEE)
+val VerifiedBadgeText       = Color(0xFF08714E)
+val AiBadgeBackground       = Color(0xFFFFF0D4)
+val AiBadgeText             = Color(0xFF9B5D00)

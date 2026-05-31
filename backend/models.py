@@ -12,6 +12,9 @@ SessionClient = Literal["mobile", "admin"]
 ReportStatus = Literal["open", "triaged", "resolved", "rejected"]
 MockTestStatus = Literal["draft", "published", "archived"]
 AttemptStatus = Literal["in_progress", "submitted", "expired"]
+LearningStatus = Literal["draft", "published", "archived"]
+ScraperSourceStatus = Literal["active", "paused", "archived"]
+ScraperRunStatus = Literal["running", "completed", "failed"]
 
 
 class QuestionIn(BaseModel):
@@ -114,6 +117,177 @@ class SyllabusOut(SyllabusIn):
     id: int
     created_at: str
     updated_at: str
+
+
+class SubjectIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9-]+$")
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=1200)
+    icon: str = Field(default="school", max_length=80)
+    color: str = Field(default="#635BFF", max_length=32)
+    sort_order: int = 0
+    status: LearningStatus = "published"
+
+
+class SubjectOut(SubjectIn):
+    id: int
+    created_at: str
+    updated_at: str
+
+
+class CourseIn(BaseModel):
+    subject_id: int = Field(ge=1)
+    slug: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9-]+$")
+    short_name: str = Field(default="", max_length=40)
+    title: str = Field(min_length=1, max_length=220)
+    badge: str = Field(default="", max_length=80)
+    description: str = Field(default="", max_length=1600)
+    coach_line: str = Field(default="", max_length=400)
+    plan_line: str = Field(default="", max_length=500)
+    teacher: str = Field(default="", max_length=160)
+    lesson_count: int = Field(default=0, ge=0)
+    duration: str = Field(default="", max_length=80)
+    level: str = Field(default="", max_length=80)
+    progress: int = Field(default=0, ge=0, le=100)
+    ai_score: int = Field(default=0, ge=0, le=100)
+    icon: str = Field(default="book", max_length=80)
+    color: str = Field(default="#635BFF", max_length=32)
+    background: str = Field(default="#EEEAFE", max_length=32)
+    sort_order: int = 0
+    status: LearningStatus = "published"
+
+
+class CourseOut(CourseIn):
+    id: int
+    subject_slug: str
+    subject_title: str
+    created_at: str
+    updated_at: str
+
+
+class CourseModuleIn(BaseModel):
+    title: str = Field(min_length=1, max_length=220)
+    lessons: int = Field(default=0, ge=0)
+    duration: str = Field(default="", max_length=80)
+    progress: int = Field(default=0, ge=0, le=100)
+    locked: bool = False
+    sort_order: int = 0
+
+
+class CourseModuleOut(CourseModuleIn):
+    id: int
+    course_id: int
+    created_at: str
+    updated_at: str
+
+
+class CourseTaskIn(BaseModel):
+    course_id: int | None = Field(default=None, ge=1)
+    title: str = Field(min_length=1, max_length=220)
+    subtitle: str = Field(default="", max_length=600)
+    duration: str = Field(default="", max_length=80)
+    icon: str = Field(default="assignment", max_length=80)
+    score_boost: int = Field(default=0, ge=0)
+    next_difficulty: str = Field(default="Adaptive", max_length=80)
+    alert_title: str = Field(default="", max_length=180)
+    alert_message: str = Field(default="", max_length=900)
+    sort_order: int = 0
+
+
+class CourseTaskOut(CourseTaskIn):
+    id: int
+    created_at: str
+    updated_at: str
+
+
+class CourseQuestionIn(BaseModel):
+    mode: str = Field(default="Practice", max_length=120)
+    prompt: str = Field(min_length=1, max_length=4000)
+    option_a: str = Field(min_length=1, max_length=1000)
+    option_b: str = Field(min_length=1, max_length=1000)
+    option_c: str = Field(min_length=1, max_length=1000)
+    option_d: str = Field(min_length=1, max_length=1000)
+    correct_option: Literal["A", "B", "C", "D"] = "A"
+    explanation: str = Field(default="", max_length=8000)
+    hint: str = Field(default="", max_length=1200)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    sort_order: int = 0
+
+
+class CourseQuestionOut(CourseQuestionIn):
+    id: int
+    course_id: int
+    created_at: str
+    updated_at: str
+
+
+class CourseMistakeIn(BaseModel):
+    title: str = Field(min_length=1, max_length=220)
+    reason: str = Field(default="", max_length=600)
+    sort_order: int = 0
+
+
+class CourseMistakeOut(CourseMistakeIn):
+    id: int
+    course_id: int
+    created_at: str
+    updated_at: str
+
+
+class CourseDetailOut(BaseModel):
+    course: CourseOut
+    modules: list[CourseModuleOut] = Field(default_factory=list)
+    tasks: list[CourseTaskOut] = Field(default_factory=list)
+    questions: list[CourseQuestionOut] = Field(default_factory=list)
+    mistakes: list[CourseMistakeOut] = Field(default_factory=list)
+
+
+class ScraperSourceIn(BaseModel):
+    name: str = Field(min_length=1, max_length=240)
+    start_url: str = Field(min_length=8, max_length=1000)
+    allowed_domain: str = Field(default="", max_length=240)
+    syllabus_category: str = Field(default="", max_length=200)
+    max_depth: int = Field(default=1, ge=0, le=5)
+    max_pages: int = Field(default=25, ge=1, le=250)
+    refresh_minutes: int = Field(default=1440, ge=5, le=10080)
+    status: ScraperSourceStatus = "active"
+
+
+class ScraperSourceOut(ScraperSourceIn):
+    id: int
+    last_crawled_at: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class ScrapedDocumentOut(BaseModel):
+    id: int
+    source_id: int
+    syllabus_entry_id: int | None = None
+    url: str
+    title: str
+    content: str
+    content_hash: str
+    syllabus_category: str
+    extracted_at: str
+    last_seen_at: str
+
+
+class ScraperRunOut(BaseModel):
+    id: int
+    source_id: int | None = None
+    status: ScraperRunStatus
+    started_at: str
+    finished_at: str | None = None
+    pages_seen: int
+    pages_saved: int
+    pages_skipped: int
+    message: str
+
+
+class ScraperRunRequest(BaseModel):
+    source_id: int | None = Field(default=None, ge=1)
+    max_pages: int | None = Field(default=None, ge=1, le=250)
 
 
 class ReportOut(BaseModel):
@@ -368,4 +542,3 @@ class AiTutorCitation(BaseModel):
 class AiTutorAskOut(BaseModel):
     answer: str
     citations: list[AiTutorCitation]
-

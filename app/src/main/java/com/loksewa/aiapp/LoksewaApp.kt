@@ -1,16 +1,27 @@
 package com.loksewa.aiapp
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -27,9 +38,12 @@ import com.loksewa.aiapp.ui.screens.result.ResultScreen
 import com.loksewa.aiapp.ui.screens.result.ResultViewModel
 import com.loksewa.aiapp.ui.screens.scan.ScanScreen
 import com.loksewa.aiapp.ui.screens.scan.ScanViewModel
+import com.loksewa.aiapp.ui.theme.BorderLight
+import com.loksewa.aiapp.ui.theme.BrandViolet
 import com.loksewa.aiapp.ui.theme.PrimaryBlue
-import com.loksewa.aiapp.ui.theme.SurfaceBlue
-import com.loksewa.aiapp.ui.theme.TextSecondary
+import com.loksewa.aiapp.ui.theme.PrimaryGlow
+import com.loksewa.aiapp.ui.theme.SurfaceLight
+import com.loksewa.aiapp.ui.theme.TextSecondaryLight
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
@@ -46,6 +60,13 @@ sealed class Screen(val route: String) {
     object TestResults : Screen("test_results/{attemptId}") {
         fun createRoute(attemptId: Int) = "test_results/$attemptId"
     }
+    object Course : Screen("course")
+    object CourseDetail : Screen("course_detail/{courseId}") {
+        fun createRoute(courseId: String) = "course_detail/$courseId"
+    }
+    object LearningFlow : Screen("learning_flow/{courseId}") {
+        fun createRoute(courseId: String) = "learning_flow/$courseId"
+    }
     object Profile : Screen("profile")
 }
 
@@ -61,6 +82,7 @@ fun LoksewaApp(
     val showBottomBar = currentRoute in listOf(
         Screen.Home.route,
         Screen.MockTestList.route,
+        Screen.Course.route,
         Screen.Profile.route
     )
 
@@ -85,64 +107,40 @@ fun LoksewaApp(
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar(
-                    containerColor = SurfaceBlue
-                ) {
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.Home.route,
-                        onClick = {
-                            navController.navigate(Screen.Home.route) {
-                                popUpTo(Screen.Home.route) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                        label = { Text("Home") },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = PrimaryBlue,
-                            selectedTextColor = PrimaryBlue,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary
-                        )
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.MockTestList.route,
-                        onClick = {
-                            navController.navigate(Screen.MockTestList.route) {
-                                popUpTo(Screen.Home.route)
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = "Mock Tests") },
-                        label = { Text("Mocks") },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = PrimaryBlue,
-                            selectedTextColor = PrimaryBlue,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary
-                        )
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.Profile.route,
-                        onClick = {
-                            navController.navigate(Screen.Profile.route) {
-                                popUpTo(Screen.Home.route)
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                        label = { Text("Profile") },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = PrimaryBlue,
-                            selectedTextColor = PrimaryBlue,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary
-                        )
-                    )
-                }
+                NeuriseBottomBar(
+                    currentRoute = currentRoute,
+                    onHomeClick = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Home.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onMockClick = {
+                        navController.navigate(Screen.MockTestList.route) {
+                            popUpTo(Screen.Home.route)
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onScanClick = {
+                        navController.navigate(Screen.Scan.route)
+                    },
+                    onCourseClick = {
+                        navController.navigate(Screen.Course.route) {
+                            popUpTo(Screen.Home.route)
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onProfileClick = {
+                        navController.navigate(Screen.Profile.route) {
+                            popUpTo(Screen.Home.route)
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
             }
         }
     ) { paddingValues ->
@@ -306,6 +304,195 @@ fun LoksewaApp(
                     }
                 )
             }
+
+            composable(Screen.Course.route) {
+                val viewModel: CourseViewModel = hiltViewModel()
+                val courseState by viewModel.uiState.collectAsState()
+
+                LaunchedEffect(Unit) {
+                    viewModel.loadCatalog()
+                }
+
+                CourseScreen(
+                    onStartMockClick = {
+                        navController.navigate(Screen.MockTestList.route)
+                    },
+                    onOpenCourseDetail = { courseId ->
+                        navController.navigate(Screen.CourseDetail.createRoute(courseId))
+                    },
+                    onStartLearning = { courseId ->
+                        navController.navigate(Screen.LearningFlow.createRoute(courseId))
+                    },
+                    uiState = courseState,
+                    onLoadCourseDetail = { viewModel.loadCourseDetail(it) }
+                )
+            }
+
+            composable(
+                route = Screen.CourseDetail.route,
+                arguments = listOf(navArgument("courseId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val courseId = backStackEntry.arguments?.getString("courseId") ?: "gk"
+                val viewModel: CourseViewModel = hiltViewModel()
+                val courseState by viewModel.uiState.collectAsState()
+
+                LaunchedEffect(courseId) {
+                    viewModel.loadCatalog()
+                    viewModel.loadCourseDetail(courseId)
+                }
+
+                CourseDetailScreen(
+                    courseId = courseId,
+                    onBackClick = { navController.popBackStack() },
+                    onStartLearning = {
+                        navController.navigate(Screen.LearningFlow.createRoute(it))
+                    },
+                    onStartMockClick = {
+                        navController.navigate(Screen.MockTestList.route)
+                    },
+                    uiState = courseState
+                )
+            }
+
+            composable(
+                route = Screen.LearningFlow.route,
+                arguments = listOf(navArgument("courseId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val courseId = backStackEntry.arguments?.getString("courseId") ?: "gk"
+                val viewModel: CourseViewModel = hiltViewModel()
+                val courseState by viewModel.uiState.collectAsState()
+
+                LaunchedEffect(courseId) {
+                    viewModel.loadCatalog()
+                    viewModel.loadCourseDetail(courseId)
+                }
+
+                LearningFlowScreen(
+                    courseId = courseId,
+                    onBackClick = { navController.popBackStack() },
+                    onFinish = {
+                        navController.navigate(Screen.CourseDetail.createRoute(courseId)) {
+                            popUpTo(Screen.Course.route)
+                        }
+                    },
+                    onOpenMock = {
+                        navController.navigate(Screen.MockTestList.route)
+                    },
+                    uiState = courseState
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun NeuriseBottomBar(
+    currentRoute: String?,
+    onHomeClick: () -> Unit,
+    onMockClick: () -> Unit,
+    onScanClick: () -> Unit,
+    onCourseClick: () -> Unit,
+    onProfileClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(96.dp)
+            .padding(horizontal = 18.dp, vertical = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(68.dp)
+                .shadow(18.dp, RoundedCornerShape(28.dp), clip = false, ambientColor = BrandViolet.copy(alpha = 0.12f))
+                .clip(RoundedCornerShape(28.dp))
+                .background(SurfaceLight)
+                .border(1.dp, BorderLight, RoundedCornerShape(28.dp))
+                .padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BottomNavAction(
+                label = "Home",
+                selected = currentRoute == Screen.Home.route,
+                icon = Icons.Default.Home,
+                onClick = onHomeClick,
+                modifier = Modifier.weight(1f)
+            )
+            BottomNavAction(
+                label = "Mocks",
+                selected = currentRoute == Screen.MockTestList.route,
+                icon = Icons.AutoMirrored.Filled.Assignment,
+                onClick = onMockClick,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            BottomNavAction(
+                label = "Course",
+                selected = currentRoute == Screen.Course.route,
+                icon = Icons.Default.School,
+                onClick = onCourseClick,
+                modifier = Modifier.weight(1f)
+            )
+            BottomNavAction(
+                label = "Profile",
+                selected = currentRoute == Screen.Profile.route,
+                icon = Icons.Default.Person,
+                onClick = onProfileClick,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .size(66.dp)
+                .shadow(16.dp, CircleShape, clip = false, ambientColor = BrandViolet.copy(alpha = 0.24f))
+                .clip(CircleShape)
+                .background(Brush.linearGradient(listOf(BrandViolet, PrimaryGlow)))
+                .clickable(onClick = onScanClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.AutoAwesome,
+                contentDescription = "Scan with AI",
+                tint = SurfaceLight,
+                modifier = Modifier.size(30.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun BottomNavAction(
+    label: String,
+    selected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val color = if (selected) BrandViolet else TextSecondaryLight
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = color,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            color = color,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium
+        )
     }
 }
