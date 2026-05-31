@@ -46,28 +46,28 @@ import com.loksewa.aiapp.ui.theme.SurfaceLight
 import com.loksewa.aiapp.ui.theme.TextSecondaryLight
 
 sealed class Screen(val route: String) {
-    object Login : Screen("login")
-    object Register : Screen("register")
-    object Home : Screen("home")
-    object Scan : Screen("scan")
-    object Result : Screen("result/{questionId}/{sourceValue}") {
+    data object Login : Screen("login")
+    data object Register : Screen("register")
+    data object Home : Screen("home")
+    data object Scan : Screen("scan")
+    data object Result : Screen("result/{questionId}/{sourceValue}") {
         fun createRoute(questionId: Int?, sourceValue: String) = "result/${questionId ?: -1}/$sourceValue"
     }
-    object MockTestList : Screen("mock_test_list")
-    object TestSession : Screen("test_session/{testId}") {
+    data object MockTestList : Screen("mock_test_list")
+    data object TestSession : Screen("test_session/{testId}") {
         fun createRoute(testId: Int) = "test_session/$testId"
     }
-    object TestResults : Screen("test_results/{attemptId}") {
+    data object TestResults : Screen("test_results/{attemptId}") {
         fun createRoute(attemptId: Int) = "test_results/$attemptId"
     }
-    object Course : Screen("course")
-    object CourseDetail : Screen("course_detail/{courseId}") {
+    data object Course : Screen("course")
+    data object CourseDetail : Screen("course_detail/{courseId}") {
         fun createRoute(courseId: String) = "course_detail/$courseId"
     }
-    object LearningFlow : Screen("learning_flow/{courseId}") {
+    data object LearningFlow : Screen("learning_flow/{courseId}") {
         fun createRoute(courseId: String) = "learning_flow/$courseId"
     }
-    object Profile : Screen("profile")
+    data object Profile : Screen("profile")
 }
 
 @Composable
