@@ -58,9 +58,9 @@ jobs:
         if: always()
         with:
           script: |
-            const { context } = require('@actions/github');
             await github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
               body: `### Quality Gate Complete\n\n| Check | Status |\n|-------|--------|\n| Node Backend | ${{ job.status == 'success' && 'Pass' || 'Fail' }} |\n| Android Lint | ${{ job.status == 'success' && 'Pass' || 'Fail' }} |\n| Kotlin Compile | ${{ job.status == 'success' && 'Pass' || 'Fail' }} |`
             });
