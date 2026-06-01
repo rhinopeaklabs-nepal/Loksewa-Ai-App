@@ -11,6 +11,7 @@ async function main() {
   process.env.LOKSEWA_ENV = "test";
   process.env.NODE_BACKEND_DB_PATH = join(tempDir, "backend-test-db.json");
   process.env.LOKSEWA_ADMIN_TOKEN = "test-admin-token";
+  process.env.LOKSEWA_SESSION_SECRET = "test-session-secret";
   process.env.LOKSEWA_DELTA_SIGNING_SECRET = "test-delta-signing-secret";
   process.env.LOKSEWA_BOOTSTRAP_ADMIN_EMAIL = "admin@loksewa.local";
   process.env.LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD = "LoksewaAdmin@Test123";
@@ -25,6 +26,8 @@ async function main() {
     const health = await app.inject({ method: "GET", url: "/healthz" });
     assert.equal(health.statusCode, 200);
     assert.equal(health.json().runtime, "node");
+    assert.equal(health.headers["x-content-type-options"], "nosniff");
+    assert.equal(health.headers["x-frame-options"], "DENY");
 
     const question = {
       question_text: "Which article establishes the Public Service Commission in Nepal?",
@@ -76,12 +79,24 @@ async function main() {
       payload: {
         question_id: questionId,
         report_type: "wrong_answer",
-        message: "Test report",
-        contact: "qa@example.com"
+        message: "<script>Test report</script>",
+        contact: "qa@example.com",
+        device_id: "device-123"
       }
     });
     assert.equal(report.statusCode, 201, report.body);
     assert.equal(report.json().status, "open");
+
+    const reports = await app.inject({
+      method: "GET",
+      url: "/v1/admin/reports",
+      headers: { "x-admin-token": "test-admin-token" }
+    });
+    assert.equal(reports.statusCode, 200, reports.body);
+    assert.equal(reports.json()[0].message.includes("<"), false);
+    assert.equal(reports.json()[0].message.includes(">"), false);
+    assert.ok(reports.json()[0].device_hash);
+    assert.equal("device_id" in reports.json()[0], false);
 
     const adminLogin = await app.inject({
       method: "POST",

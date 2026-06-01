@@ -26,7 +26,10 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8000 \
     NODE_BACKEND_DB_PATH=/data/node-backend-db.json \
-    ADMIN_DIST_PATH=/app/admin-dashboard/dist
+    ADMIN_DIST_PATH=/app/admin-dashboard/dist \
+    LOKSEWA_TRUST_PROXY=true \
+    LOKSEWA_ENFORCE_HTTPS=true \
+    LOKSEWA_ENABLE_ARCHITECTURE_ROUTES=false
 
 WORKDIR /app
 RUN addgroup -S loksewa && adduser -S loksewa -G loksewa

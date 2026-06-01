@@ -1,0 +1,193 @@
+version: "3.9"
+
+# Loksewa AI — Local Development Infrastructure
+# Run: docker compose -f infrastructure/docker/docker-compose.yml up -d
+#
+# Services included:
+#   - postgres          Primary OLTP database
+#   - redis             Cache, sessions, leaderboards, rate limiting
+#   - qdrant            Vector database for RAG + memory
+#   - kafka             Event bus
+#   - zookeeper         Kafka dependency
+#   - minio             S3-compatible object storage
+#   - prometheus        Metrics
+#   - grafana           Dashboards
+#   - jaeger            Distributed tracing
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: loksewa-postgres
+    environment:
+      POSTGRES_USER: loksewa
+      POSTGRES_PASSWORD: loksewa_dev_pw
+      POSTGRES_DB: loksewa_ai
+      POSTGRES_MULTIPLE_DATABASES: "loksewa_auth,loksewa_user,loksewa_learning,loksewa_gamification,loksewa_knowledge,loksewa_ai_svc,loksewa_memory,loksewa_exam,loksewa_analytics"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loksewa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - loksewa-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: loksewa-redis
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - loksewa-net
+
+  qdrant:
+    image: qdrant/qdrant:v1.8.0
+    container_name: loksewa-qdrant
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__LOG_LEVEL: INFO
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - loksewa-net
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: loksewa-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - loksewa-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: loksewa-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - loksewa-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: loksewa-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: loksewa
+      MINIO_ROOT_PASSWORD: loksewa_dev_pw
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - loksewa-net
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: loksewa-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set local http://minio:9000 loksewa loksewa_dev_pw;
+      mc mb -p local/loksewa-ai || true;
+      mc mb -p local/loksewa-ai-documents || true;
+      mc mb -p local/loksewa-ai-training-data || true;
+      mc mb -p local/loksewa-ai-certificates || true;
+      mc mb -p local/loksewa-ai-avatars || true;
+      mc anonymous set download local/loksewa-ai-certificates || true;
+      "
+    networks:
+      - loksewa-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: loksewa-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - loksewa-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: loksewa-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: loksewa_dev_pw
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - loksewa-net
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: loksewa-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "14250:14250"
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - loksewa-net
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  minio_data:
+  grafana_data:
+
+networks:
+  loksewa-net:
+    driver: bridge

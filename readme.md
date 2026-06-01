@@ -1,281 +1,257 @@
-# Loksewa AI Preparation Engine
+# Loksewa AI — AI Learning Operating System for Nepal
 
-Offline-first architecture and implementation scaffold for a Loksewa preparation app with a camera-powered "Quick Scan" workflow, production backend, verified data pipeline, and Android prototype.
+> **Duolingo + ChatGPT + Anki + Coursera + Nepal Loksewa Knowledge**
 
-The core principle is simple: verified data wins. The app should only use local generative AI when the scanned question cannot be matched confidently against the verified offline question bank.
+The complete monorepo for **Loksewa AI** — RhinoPeak Labs Nepal's flagship product. An AI-native adaptive learning platform with 13 microservices, Flutter mobile app, Next.js web, React admin dashboard, and a future foundation model pipeline.
 
-## Architecture
+📖 **Read the full vision: [`docs/SAS.md`](docs/SAS.md)** (Software Architecture Specification)
 
-```text
-User camera / manual input
-        |
-        v
-Layer 1: On-device OCR
-Google ML Kit text recognition extracts printed text offline.
-        |
-        v
-Layer 2: Verified local database
-SQLite FTS5 with a trigram tokenizer searches the packaged Loksewa data.
-        |
-        +-- High-confidence match -> Verified answer, no AI involved
-        |
-        v
-Layer 3: On-device LLM fallback
-Gemini Nano / Gemma / LiteRT-style model explains only when no verified
-match exists, with an obvious AI warning badge.
+---
+
+## 🏗️ What's Inside
+
+```
+loksewa-ai-app/
+├── apps/
+│   ├── mobile/              # Flutter app (iOS + Android)
+│   ├── web/                 # Next.js web app
+│   └── admin-dashboard/     # React admin console
+├── services/                # 10+ Node.js / Python microservices
+│   ├── auth-service/        # JWT, OAuth, OTP, sessions
+│   ├── user-service/        # Profile, preferences
+│   ├── learning-service/    # Skill engine, missions, recommendations
+│   ├── gamification-service/# XP, streaks, badges, leaderboards
+│   ├── knowledge-service/   # Verified Q&A, RAG
+│   ├── ai-service/          # Qwen/Llama, RAG, prompts, context
+│   ├── memory-service/      # Long-term user memory
+│   ├── exam-service/        # Mock exams, grading, reports
+│   ├── notification-service/# Push, email, in-app
+│   └── analytics-service/   # Events, BI, dashboards
+├── packages/
+│   ├── shared-types/        # TypeScript types shared across services
+│   └── shared-utils/        # Logger, errors, DB, Redis, Kafka, JWT
+├── infrastructure/
+│   ├── docker/              # docker-compose for local dev
+│   ├── database/migrations/ # 12 SQL migration files
+│   ├── kubernetes/          # K8s manifests
+│   └── kong/                # API Gateway config
+├── docs/                    # SAS, architecture, specs
+└── .github/workflows/       # CI/CD
 ```
 
-This design avoids the dangerous path of letting a compact phone model invent facts about Nepal's constitution, geography, history, or current regulations.
+---
 
-## Repository Structure
+## 🚀 Quick Start (5 minutes)
 
-```text
-assets/
-  README.md                  Notes for packaged compressed database assets
-backend/
-  src/                       Node/Fastify API for search, sync, reports, admin, and mocks
-  Dockerfile                 Production Node backend image
-  docker-compose.production.yml
-admin-dashboard/
-  src/                       React admin dashboard for CRUD, users, reports, and mock tests
-database/
-  schema.sql                 Production SQLite schema with FTS5 trigram index
-  search_query.sql           Canonical verified-question lookup query
-  seed_script.py             Builds, vacuums, and compresses the seed database
-data/
-  sample_questions.json      Small sample input for validating the seed script
-  training_samples.jsonl     Review-first JSONL ingestion sample
-docs/
-  DATA_PIPELINE.md           Data sourcing and verification workflow
-  STORE_COMPLIANCE.md        Apple/Google production readiness checklist
-app/
-  src/main/...               Android WebView shell with mobile auth, search, and mock tests
-lib/
-  database_service.dart      Flutter runtime unpack/open/search service
-PRIVACY.md                   Draft privacy policy
-SPEC.md                      Product and technical specification
-readme.md                    This file
+### Prerequisites
+
+- **Node.js** ≥ 20
+- **pnpm** ≥ 9 (`npm install -g pnpm`)
+- **Docker** & **Docker Compose**
+- **Python 3.11+** (for AI service)
+- 8GB+ RAM (16GB recommended)
+
+### 1. Clone & install
+
+```bash
+git clone https://github.com/rhinopeaklabs-nepal/Loksewa-Ai-App
+cd Loksewa-Ai-App
+pnpm install
 ```
 
-## Accuracy Strategy
+### 2. Start infrastructure
 
-The app does not promise that an offline language model is always correct. It promises that verified answers are served deterministically whenever the database contains a strong match.
+```bash
+docker compose -f infrastructure/docker/docker-compose.yml up -d
+```
 
-| Match result | Runtime behavior | UI badge |
+This starts:
+- ✅ PostgreSQL 16 (9 databases, one per service)
+- ✅ Redis 7
+- ✅ Qdrant (vector DB)
+- ✅ Kafka + Zookeeper
+- ✅ MinIO (S3-compatible storage)
+- ✅ Prometheus, Grafana, Jaeger
+
+### 3. Run database migrations
+
+```bash
+for f in infrastructure/database/migrations/*.sql; do
+  dbname=$(basename "$f" .sql | sed 's/^[0-9]*_//' | tr '-' '_')
+  PGPASSWORD=loksewa_dev_pw psql -h localhost -U loksewa -d "$dbname" -f "$f"
+done
+```
+
+Or on Windows PowerShell:
+
+```powershell
+Get-ChildItem infrastructure/database/migrations/*.sql | ForEach-Object {
+  $name = $_.BaseName -replace '^\d+_', ''
+  $env:PGPASSWORD = 'loksewa_dev_pw'
+  psql -h localhost -U loksewa -d $name -f $_.FullName
+}
+```
+
+### 4. Build shared packages
+
+```bash
+pnpm --filter @loksewa/shared-types build
+pnpm --filter @loksewa/shared-utils build
+```
+
+### 5. Start all services (dev mode)
+
+```bash
+pnpm turbo run dev --parallel
+```
+
+Each service starts on its assigned port (3001-3011).
+
+### 6. Start the apps
+
+```bash
+# Web (Next.js)
+pnpm --filter @loksewa/web dev
+
+# Admin
+pnpm --filter @loksewa/admin-dashboard dev
+
+# Mobile (Flutter)
+cd apps/mobile
+flutter pub get
+flutter run
+```
+
+---
+
+## 🔌 Service Endpoints
+
+| Service | Port | Base URL |
 | --- | --- | --- |
-| Exact or high-confidence FTS match | Return the stored question, answer, explanation, and source | Verified Source |
-| Medium-confidence match | Use the nearest verified row as context for the AI fallback | AI-Assisted Explanation |
-| No useful match | Use the on-device model only if enabled and confidence-gated | AI Analysis: Check Sources |
+| auth-service | 3001 | http://localhost:3001 |
+| user-service | 3002 | http://localhost:3002 |
+| learning-service | 3003 | http://localhost:3003 |
+| gamification-service | 3004 | http://localhost:3004 |
+| ai-service | 3006 | http://localhost:3006 |
+| knowledge-service | 3007 | http://localhost:3007 |
+| memory-service | 3008 | http://localhost:3008 |
+| exam-service | 3009 | http://localhost:3009 |
+| notification-service | 3010 | http://localhost:3010 |
+| analytics-service | 3011 | http://localhost:3011 |
 
-Verified answers must always display source metadata. AI answers must always display a disclaimer that the result should be checked against official sources such as Rajpatra or authoritative textbooks.
+For local dev, run the **Kong API Gateway** in front:
 
-## Database Design
-
-The database uses a normal relational table for authoritative data and an FTS5 virtual table for fast fuzzy matching.
-
-Key choices:
-
-- `loksewa_questions` stores the verified MCQ, answer, explanation, and source fields.
-- `fts_questions` indexes normalized question text using `tokenize = 'trigram'`.
-- Insert, update, and delete triggers keep the FTS index synchronized.
-- `scan_history` records local user activity without requiring a network.
-
-See [database/schema.sql](database/schema.sql) for the complete schema.
-
-## Build the Seed Database
-
-Prepare a JSON or CSV file with verified questions, then run:
-
-```powershell
-python database\seed_script.py --input data\sample_questions.json --output build\loksewa_v1.db --compress gzip
+```bash
+docker run -d --name kong \
+  --network loksewa-ai-app_loksewa-net \
+  -e KONG_DATABASE=off \
+  -e KONG_DECLARATIVE_CONFIG=/etc/kong/kong.yml \
+  -p 8000:8000 \
+  -v $(pwd)/infrastructure/kong/kong.yml:/etc/kong/kong.yml \
+  kong:3.4
 ```
 
-The script:
+Then everything is available at `http://localhost:8000`.
 
-1. Creates a fresh SQLite database.
-2. Applies the production schema.
-3. Normalizes and inserts verified question rows.
-4. Builds the FTS5 trigram index through database triggers.
-5. Runs `VACUUM` and `PRAGMA optimize`.
-6. Writes a compressed `loksewa_v1.db.gz` asset.
+---
 
-Use Brotli when the Python `brotli` package is installed:
+## 🧪 Testing
 
-```powershell
-python database\seed_script.py --input data\questions.json --output build\loksewa_v1.db --compress brotli
+```bash
+# All services
+pnpm test
+
+# Specific service
+pnpm --filter @loksewa/auth-service test
 ```
 
-## Run the Backend
+---
 
-```powershell
-cd backend
-npm install
-npm run dev
+## 📊 Observability
+
+- **Grafana**: http://localhost:3000 (admin / `loksewa_dev_pw`)
+- **Prometheus**: http://localhost:9090
+- **Jaeger**: http://localhost:16686
+- **MinIO Console**: http://localhost:9001 (`loksewa` / `loksewa_dev_pw`)
+
+---
+
+## 🧠 The Six Engines
+
+| Engine | Owns | File |
+| --- | --- | --- |
+| **Learning** | Skill scores, daily missions, recommendations | `services/learning-service/src/engines/` |
+| **Memory** | Long-term user memory, extraction | `services/memory-service/src/` |
+| **Knowledge** | Verified Q&A, RAG ingestion | `services/knowledge-service/src/` |
+| **AI Tutor** | LLM, RAG, prompts, context | `services/ai-service/src/` |
+| **Gamification** | XP, streaks, badges, leaderboards | `services/gamification-service/src/engines/` |
+| **Foundation Model** | (Future) Training data collection | `services/analytics-service/` |
+
+See `docs/SAS.md` §6 for the canonical description of each.
+
+---
+
+## 🗺️ Roadmap
+
+- ✅ **Phase 0** — Foundation (offline-first Quick Scan)
+- 🚧 **Phase 1** — MVP Online (auth, basic MCQ practice, XP)
+- 📋 **Phase 2** — Adaptive Learning + AI Tutor
+- 📋 **Phase 3** — Engagement (gamification, leaderboards)
+- 📋 **Phase 4** — Scale (microservices, Kafka, 1M users)
+- 📋 **Phase 5** — Foundation Model (RhinoPeak fine-tune)
+- 📋 **Phase 6** — Platform expansion (SEE, +2, Bachelor)
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Tech |
+| --- | --- |
+| Frontend Mobile | Flutter, Riverpod, GoRouter |
+| Frontend Web | Next.js 14, React 18, Tailwind |
+| Admin Dashboard | React 18, Vite, Recharts, TanStack Query |
+| Backend Services | Node.js (Fastify) + Python (FastAPI) |
+| Database | PostgreSQL 16 |
+| Cache | Redis 7 |
+| Vector DB | Qdrant |
+| Message Queue | Kafka (Redpanda in prod) |
+| Object Storage | S3 / MinIO |
+| LLM | Qwen 2.5 / Llama 3 (local) + future RhinoPeak |
+| Embeddings | BGE-m3 (multilingual incl. Nepali) |
+| Orchestration | Kubernetes (EKS) + ArgoCD |
+| API Gateway | Kong |
+| Observability | Prometheus + Grafana + Jaeger + OpenTelemetry |
+
+---
+
+## 🤝 Contributing
+
+See `docs/SAS.md` for the source of truth. New features should map to one of the six engines.
+
+```bash
+# Create a feature branch
+git checkout -b feat/your-feature
+
+# Make changes
+pnpm test
+pnpm typecheck
+
+# Commit
+git commit -m "feat(learning): add spaced repetition review screen"
+
+# Open PR
 ```
 
-Health check:
+---
 
-```powershell
-curl.exe http://127.0.0.1:8000/healthz
-```
+## 📜 License
 
-React admin dashboard:
+UNLICENSED — Proprietary, RhinoPeak Labs Nepal © 2026
 
-```text
-http://127.0.0.1:8000/dashboard/
-```
+---
 
-Architecture page from `index.html`:
+## 📞 Contact
 
-```text
-http://127.0.0.1:8000/architecture
-```
-
-The backend also serves the source architecture spec from `ARCHITECTURE.md` at:
-
-```text
-http://127.0.0.1:8000/architecture.md
-```
-
-Development admin credentials:
-
-```text
-Email: admin@loksewa.local
-Password: LoksewaAdmin@123
-```
-
-Set `LOKSEWA_BOOTSTRAP_ADMIN_EMAIL`, `LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD`, `LOKSEWA_ADMIN_TOKEN`, `LOKSEWA_DELTA_SIGNING_SECRET`, and `LOKSEWA_CORS_ORIGINS` before any real deployment.
-
-Backend verification:
-
-```powershell
-cd backend
-npm run check
-npm run build
-```
-
-Production container:
-
-```powershell
-docker compose -f backend/docker-compose.production.yml up -d --build
-```
-
-Public API:
-
-- `POST /v1/search`
-- `GET /v1/questions`
-- `GET /v1/questions/{id}`
-- `GET /v1/categories`
-- `GET /v1/sync/delta?since_version=1`
-- `POST /v1/reports`
-
-Admin API requires `X-Admin-Token`:
-
-- `POST /v1/admin/questions`
-- `POST /v1/admin/import-batch`
-- `DELETE /v1/admin/questions/{id}`
-
-Or sign in through `/v1/auth/login` as an admin and use `Authorization: Bearer <token>`.
-
-## React Admin Dashboard
-
-```powershell
-cd admin-dashboard
-npm install
-npm run dev
-npm run build
-```
-
-The dashboard includes:
-
-1. Question CRUD and review status management.
-2. Syllabus/reference CRUD.
-3. User CRUD for students, reviewers, and admins.
-4. Student report triage.
-5. Mock test CRUD with duration, positive marks, optional negative marking, and question ordering.
-
-## Import Training or Review Data
-
-Review batches are imported through the Node admin API:
-
-```powershell
-curl.exe -X POST http://127.0.0.1:8000/v1/admin/import-batch `
-  -H "X-Admin-Token: dev-admin-token-change-me" `
-  -H "Content-Type: application/json" `
-  -d "@data\training_samples.import.json"
-```
-
-Use `"verification_status": "verified"` only after source, license, and answer correctness have been reviewed.
-
-## Android Prototype
-
-The Android project currently uses a local WebView mobile surface for sign in/register, verified-bank search, and mock-test simulation. The emulator uses `http://10.0.2.2:8000` to reach the local backend.
-
-Build:
-
-```powershell
-$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"
-$env:ANDROID_HOME="C:\Users\salam\AppData\Local\Android\Sdk"
-& "C:\Users\salam\.gradle\wrapper\dists\gradle-8.14-all\c2qonpi39x1mddn7hk5gh9iqj\gradle-8.14\bin\gradle.bat" --offline assembleDebug
-```
-
-Install on emulator:
-
-```powershell
-adb install -r app\build\outputs\apk\debug\app-debug.apk
-adb shell am start -n com.loksewa.aiapp/.MainActivity
-```
-
-## Mobile Runtime Flow
-
-On first launch:
-
-1. Check whether `loksewa_active.db` already exists in app storage.
-2. If missing, load `assets/loksewa_v1.db.gz`.
-3. Decompress it on a background isolate.
-4. Write it atomically into the app database directory.
-5. Open it read-only for fast verified lookup.
-
-At runtime:
-
-1. OCR extracts text from the camera image.
-2. Text is normalized.
-3. `VerifiedDatabaseService.searchVerifiedQuestions()` returns the top local matches.
-4. The answer pipeline decides whether to show a verified result or fall back to AI.
-
-See [lib/database_service.dart](lib/database_service.dart).
-
-## Suggested Flutter Dependencies
-
-```yaml
-dependencies:
-  flutter:
-    sdk: flutter
-  archive: ^3.6.1
-  google_mlkit_text_recognition: ^0.15.0
-  path: ^1.9.0
-  path_provider: ^2.1.3
-  sqflite: ^2.3.3
-```
-
-If you need encrypted local storage, replace `sqflite` with `sqflite_sqlcipher` and adapt the open call accordingly.
-
-## OTA Update Model
-
-The packaged database gives instant offline value. Later question-bank updates can be delivered as small signed delta files when the user has internet:
-
-1. Download a JSON delta with new verified rows and a version number.
-2. Temporarily open the database in write mode.
-3. Insert new rows into `loksewa_questions`.
-4. Let the triggers update `fts_questions`.
-5. Store the applied database version in `database_metadata`.
-
-Do not update the on-device model silently. Model changes should be treated as app releases or explicit large downloads because they affect behavior, size, battery use, and trust.
-
-## Production Readiness
-
-See:
-
-- [docs/DATA_PIPELINE.md](docs/DATA_PIPELINE.md)
-- [docs/STORE_COMPLIANCE.md](docs/STORE_COMPLIANCE.md)
-- [PRIVACY.md](PRIVACY.md)
+- **Company**: RhinoPeak Labs Nepal
+- **Repository**: https://github.com/rhinopeaklabs-nepal/Loksewa-Ai-App
+- **Vision Document**: [docs/SAS.md](docs/SAS.md)

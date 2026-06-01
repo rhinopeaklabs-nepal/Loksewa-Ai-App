@@ -22,6 +22,7 @@ Tracked environment files:
 Production fails fast if these are still using development values:
 
 - `LOKSEWA_ADMIN_TOKEN`
+- `LOKSEWA_SESSION_SECRET`
 - `LOKSEWA_DELTA_SIGNING_SECRET`
 - `LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD`
 - `LOKSEWA_CORS_ORIGINS`
@@ -102,6 +103,15 @@ docker compose -f backend/docker-compose.production.yml up -d --build
 ```
 
 The production image stores the JSON runtime database at `/data/node-backend-db.json` and includes the built `admin-dashboard/dist` bundle.
+
+## Security Controls
+
+- Session tokens are random bearer tokens stored server-side by HMAC digest using `LOKSEWA_SESSION_SECRET`.
+- `/v1/auth/login` has a stricter per-IP rate limit than the global API limit.
+- Production responses include HSTS, CSP, frame denial, referrer policy, and content-type sniffing protection.
+- Production redirects proxied HTTP traffic to HTTPS when `X-Forwarded-Proto` is present.
+- `/architecture` and `/architecture.md` are disabled in production unless `LOKSEWA_ENABLE_ARCHITECTURE_ROUTES=true`.
+- Reports sanitize submitted text and store only a SHA-256 hash of any supplied device identifier.
 
 ## Main API
 

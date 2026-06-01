@@ -6,6 +6,12 @@
 .kotlin/
 build/
 app/build/
+apps/mobile/build/
+apps/mobile/.dart_tool/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/.packages
+apps/mobile/pubspec.lock
 *.apk
 *.aab
 *.ap_
@@ -59,12 +65,22 @@ runtime/
 # Do NOT ignore the seed database asset
 !app/src/main/assets/loksewa_v1.db.gz
 
-# ─── Node / Admin Dashboard ──────────────────────────────────────────────────
-backend/node_modules/
+# ─── Node / Monorepo ─────────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
 backend/dist/
 admin-dashboard/node_modules/
 admin-dashboard/.next/
 admin-dashboard/dist/
+apps/web/.next/
+apps/web/out/
+apps/admin-dashboard/dist/
+services/*/dist/
+services/*/node_modules/
+packages/*/dist/
+packages/*/node_modules/
+.turbo/
+*.tsbuildinfo
 
 # ─── OS / Editor ─────────────────────────────────────────────────────────────
 .DS_Store
@@ -88,8 +104,11 @@ GoogleService-Info.plist
 *.zip
 *.tar.gz
 stitch_*.zip
+loksewa-ai-platform-v1.zip
+repomix-output.xml
 
 # ─── Temp / Generated ────────────────────────────────────────────────────────
 .mavis/
 .opencode/
 settings.gradle.bak
+*.bak

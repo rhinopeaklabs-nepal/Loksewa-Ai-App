@@ -1,0 +1,49 @@
+{
+  "name": "@loksewa/shared-utils",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./logger": "./dist/logger.js",
+    "./errors": "./dist/errors.js",
+    "./config": "./dist/config.js",
+    "./db": "./dist/db.js",
+    "./redis": "./dist/redis.js",
+    "./kafka": "./dist/kafka.js",
+    "./auth": "./dist/auth.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@loksewa/shared-types": "workspace:*",
+    "fastify": "^4.28.0",
+    "pg": "^8.12.0",
+    "ioredis": "^5.4.1",
+    "kafkajs": "^2.2.4",
+    "jsonwebtoken": "^9.0.2",
+    "bcrypt": "^5.1.1",
+    "pino": "^9.2.0",
+    "pino-pretty": "^11.2.0",
+    "zod": "^3.23.8",
+    "nanoid": "^5.0.7",
+    "axios": "^1.7.0",
+    "@qdrant/js-client-rest": "^1.10.0",
+    "@aws-sdk/client-s3": "^3.616.0",
+    "uuid": "^10.0.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.6",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/bcrypt": "^5.0.2",
+    "@types/uuid": "^10.0.0"
+  }
+}

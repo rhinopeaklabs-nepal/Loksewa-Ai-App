@@ -1,0 +1,39 @@
+{
+  "name": "loksewa-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Loksewa AI — AI Learning Operating System for Nepal. Microservices monorepo.",
+  "workspaces": [
+    "services/*",
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "infra:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infrastructure/docker/docker-compose.yml down",
+    "infra:logs": "docker compose -f infrastructure/docker/docker-compose.yml logs -f",
+    "db:migrate": "node packages/db-migrator/dist/cli.js up",
+    "db:seed": "node packages/db-seeder/dist/cli.js",
+    "services:start": "turbo run dev --parallel",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.6",
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0",
+    "prettier": "^3.3.0",
+    "eslint": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "author": "RhinoPeak Labs Nepal",
+  "license": "UNLICENSED"
+}

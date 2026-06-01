@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+  namespace: loksewa-prod
+  labels:
+    app: ai-service
+    tier: ai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-service
+  template:
+    metadata:
+      labels:
+        app: ai-service
+        tier: ai
+    spec:
+      nodeSelector:
+        workload: gpu
+      containers:
+        - name: ai-service
+          image: ghcr.io/rhinopeaklabs-nepal/loksewa-ai-ai-service:latest
+          ports:
+            - containerPort: 3006
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: SERVICE_PORT
+              value: "3006"
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: REDIS_HOST
+              value: redis
+            - name: QDRANT_URL
+              value: http://qdrant:6333
+            - name: LLM_BASE_URL
+              value: http://qwen-inference:8000
+            - name: LLM_DEFAULT_MODEL
+              value: qwen2.5-7b-instruct
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 500m
+              nvidia.com/gpu: 1
+            limits:
+              memory: 4Gi
+              cpu: 2
+              nvidia.com/gpu: 1
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3006
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 3006
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-service
+  namespace: loksewa-prod
+spec:
+  type: ClusterIP
+  selector:
+    app: ai-service
+  ports:
+    - name: http
+      port: 3006
+      targetPort: 3006
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ai-service
+  namespace: loksewa-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ai-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Pods
+      pods:
+        metric:
+          name: ai_queue_depth
+        target:
+          type: AverageValue
+          averageValue: "5"

@@ -1,0 +1,78 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["docs/**", "*.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG_STAGING }}
+
+      - name: Deploy to Staging
+        run: |
+          envsubst < infrastructure/kubernetes/deployment-staging.yaml | kubectl apply -f -
+          kubectl rollout status deployment --timeout=600s -n loksewa-staging
+
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          ./scripts/smoke-test.sh https://staging.loksewa-ai.com
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG_PROD }}
+
+      - name: Apply database migrations
+        run: |
+          for f in infrastructure/database/migrations/*.sql; do
+            kubectl exec -i loksewa-postgres-0 -n loksewa-prod -- psql -U loksewa -d $(basename $f .sql | sed 's/^[0-9]*_//') < $f || true
+          done
+
+      - name: Deploy with ArgoCD
+        run: |
+          argocd app sync loksewa-ai-production --grpc-web
+          argocd app wait loksewa-ai-production --health --timeout 600
+
+      - name: Verify deployment
+        run: |
+          sleep 60
+          ./scripts/verify-deployment.sh https://api.loksewa-ai.com
+
+      - name: Notify Slack
+        if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "✅ Loksewa AI deployed to production: ${{ github.sha }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { extname, join, resolve } from "node:path";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 
@@ -101,7 +102,7 @@ type MockAnswer = DbRecord & {
   answered_at: string | null;
 };
 type User = DbRecord & { email: string; password_hash: string; full_name: string; role: UserRole; status: UserStatus; last_login_at: string | null };
-type Report = { id: number; question_id: number | null; scanned_text: string; report_type: string; message: string; contact: string; status: string; created_at: string };
+type Report = { id: number; question_id: number | null; scanned_text: string; report_type: string; message: string; contact: string; status: string; created_at: string; device_hash?: string };
 type ScraperSource = DbRecord & { name: string; start_url: string; allowed_domain: string; syllabus_category: string; max_depth: number; max_pages: number; refresh_minutes: number; status: "active" | "paused" | "archived"; last_crawled_at: string | null };
 type ScraperRun = { id: number; source_id: number | null; status: "running" | "completed" | "failed"; started_at: string; finished_at: string | null; pages_seen: number; pages_saved: number; pages_skipped: number; message: string };
 type ScrapedDocument = { id: number; source_id: number; syllabus_entry_id: number | null; url: string; title: string; content: string; content_hash: string; syllabus_category: string; extracted_at: string; last_seen_at: string };
@@ -159,16 +160,25 @@ const ADMIN_DIST = resolve(process.env.ADMIN_DIST_PATH ?? join(PROJECT_ROOT, "ad
 const ADMIN_TOKEN = process.env.LOKSEWA_ADMIN_TOKEN ?? "dev-admin-token-change-me";
 const BOOTSTRAP_ADMIN_EMAIL = (process.env.LOKSEWA_BOOTSTRAP_ADMIN_EMAIL ?? "admin@loksewa.local").toLowerCase();
 const BOOTSTRAP_ADMIN_PASSWORD = process.env.LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD ?? "LoksewaAdmin@123";
+const SESSION_SECRET = process.env.LOKSEWA_SESSION_SECRET ?? "dev-session-secret-change-me";
 const SESSION_HOURS = Number(process.env.SESSION_TTL_HOURS ?? 168);
 const NODE_ENV = process.env.LOKSEWA_ENV ?? process.env.NODE_ENV ?? "development";
 const IS_PRODUCTION = NODE_ENV === "production";
+const TRUST_PROXY = (process.env.LOKSEWA_TRUST_PROXY ?? "true").toLowerCase() !== "false";
+const ENFORCE_HTTPS = (process.env.LOKSEWA_ENFORCE_HTTPS ?? (IS_PRODUCTION ? "true" : "false")).toLowerCase() !== "false";
+const ENABLE_ARCHITECTURE_ROUTES = (process.env.LOKSEWA_ENABLE_ARCHITECTURE_ROUTES ?? (IS_PRODUCTION ? "false" : "true")).toLowerCase() === "true";
 const DELTA_SIGNING_SECRET = process.env.LOKSEWA_DELTA_SIGNING_SECRET ?? "dev-delta-signing-secret-change-me";
 const CORS_ORIGINS = (process.env.LOKSEWA_CORS_ORIGINS ?? process.env.CORS_ORIGINS ?? "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:8000")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
 const SCRAPER_USER_AGENT = process.env.LOKSEWA_SCRAPER_USER_AGENT ?? "LoksewaAIStudyBot/0.1 (+https://localhost; educational syllabus updater)";
-const ENABLE_SCRAPER = (process.env.LOKSEWA_SCRAPER_ENABLED ?? "true").toLowerCase() !== "false";
+const ENABLE_SCRAPER = (process.env.LOKSEWA_SCRAPER_ENABLED ?? "false").toLowerCase() !== "false";
+const REQUEST_BODY_LIMIT_BYTES = Number(process.env.REQUEST_BODY_LIMIT_BYTES ?? 128 * 1024);
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX ?? (IS_PRODUCTION ? 120 : 600));
+const RATE_LIMIT_WINDOW = process.env.RATE_LIMIT_WINDOW ?? "1 minute";
+const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10);
+const AUTH_RATE_LIMIT_WINDOW = process.env.AUTH_RATE_LIMIT_WINDOW ?? "1 minute";
 const PASSWORD_ITERATIONS = 210_000;
 
 function now(): string {
@@ -205,10 +215,33 @@ function signPayload(payload: unknown): string {
   return createHmac("sha256", DELTA_SIGNING_SECRET).update(JSON.stringify(payload)).digest("hex");
 }
 
+function sessionKeyFor(token: string): string {
+  return createHmac("sha256", SESSION_SECRET).update(token).digest("hex");
+}
+
+function sanitizeText(value: unknown, maxLength: number): string {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/[<>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function normalizedClientIp(request: FastifyRequest): string {
+  const forwardedFor = request.headers["x-forwarded-for"];
+  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
+    return forwardedFor.split(",")[0].trim();
+  }
+  return request.ip;
+}
+
 function validateRuntimeConfig(): void {
   if (!IS_PRODUCTION) return;
   const insecure = [];
   if (!ADMIN_TOKEN || ADMIN_TOKEN === "dev-admin-token-change-me") insecure.push("LOKSEWA_ADMIN_TOKEN");
+  if (!SESSION_SECRET || SESSION_SECRET === "dev-session-secret-change-me") insecure.push("LOKSEWA_SESSION_SECRET");
   if (!DELTA_SIGNING_SECRET || DELTA_SIGNING_SECRET === "dev-delta-signing-secret-change-me") insecure.push("LOKSEWA_DELTA_SIGNING_SECRET");
   if (!BOOTSTRAP_ADMIN_PASSWORD || BOOTSTRAP_ADMIN_PASSWORD === "LoksewaAdmin@123") insecure.push("LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD");
   if (CORS_ORIGINS.includes("*")) insecure.push("LOKSEWA_CORS_ORIGINS");
@@ -480,15 +513,26 @@ function courseDetail(identifier: string, publishedOnly = false) {
 function tokenFor(user: User): string {
   const token = `node_${randomBytes(24).toString("hex")}`;
   const expires = new Date(Date.now() + SESSION_HOURS * 60 * 60 * 1000).toISOString();
-  db.sessions[token] = { user_id: user.id, expires_at: expires };
+  db.sessions[sessionKeyFor(token)] = { user_id: user.id, expires_at: expires };
   saveDb(db);
   return token;
+}
+
+function sessionForToken(token: string): { user_id: number; expires_at: string } | null {
+  const key = sessionKeyFor(token);
+  const session = db.sessions[key] ?? db.sessions[token];
+  if (session && db.sessions[token]) {
+    db.sessions[key] = session;
+    delete db.sessions[token];
+    saveDb(db);
+  }
+  return session ?? null;
 }
 
 function currentUser(request: FastifyRequest): User | null {
   const header = request.headers.authorization;
   const token = header?.startsWith("Bearer ") ? header.slice(7) : "";
-  const session = token ? db.sessions[token] : null;
+  const session = token ? sessionForToken(token) : null;
   if (!session || new Date(session.expires_at).getTime() < Date.now()) return null;
   return db.users.find((user) => user.id === session.user_id) ?? null;
 }
@@ -524,6 +568,18 @@ function createItem<T extends object>(bucket: CollectionKey, payload: T) {
   (db[bucket] as unknown as Array<T & DbRecord>).push(item);
   saveDb(db);
   return item;
+}
+
+function applySecurityHeaders(reply: FastifyReply): void {
+  reply.header("X-Content-Type-Options", "nosniff");
+  reply.header("X-Frame-Options", "DENY");
+  reply.header("Referrer-Policy", "no-referrer");
+  reply.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  reply.header("Cross-Origin-Resource-Policy", "same-origin");
+  if (IS_PRODUCTION) {
+    reply.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    reply.header("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  }
 }
 
 function requireUser(request: FastifyRequest, reply: FastifyReply): User | null {
@@ -675,7 +731,30 @@ async function runScraper(sourceId?: number, maxPages?: number): Promise<Scraper
 
 export async function buildApp(): Promise<FastifyInstance> {
   validateRuntimeConfig();
-  const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "info" } });
+  const app = Fastify({
+    bodyLimit: REQUEST_BODY_LIMIT_BYTES,
+    logger: { level: process.env.LOG_LEVEL ?? "info" },
+    trustProxy: TRUST_PROXY
+  });
+  app.addHook("onRequest", async (request, reply) => {
+    const forwardedProto = request.headers["x-forwarded-proto"];
+    const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
+    if (IS_PRODUCTION && ENFORCE_HTTPS && proto && proto.split(",")[0].trim().toLowerCase() !== "https") {
+      const host = request.headers["x-forwarded-host"] ?? request.headers.host;
+      return reply.redirect(`https://${host}${request.url}`, 308);
+    }
+  });
+  app.addHook("onSend", async (_request, reply, payload) => {
+    applySecurityHeaders(reply);
+    return payload;
+  });
+  await app.register(rateLimit, {
+    global: true,
+    max: RATE_LIMIT_MAX,
+    timeWindow: RATE_LIMIT_WINDOW,
+    keyGenerator: normalizedClientIp,
+    errorResponseBuilder: () => ({ detail: "Too many requests. Please try again later." })
+  });
   await app.register(cors, {
     origin: IS_PRODUCTION ? CORS_ORIGINS : true,
     credentials: true
@@ -688,30 +767,39 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get("/healthz", async () => ({ status: "ok", runtime: "node", service: "loksewa-ai-fullstack" }));
   app.get("/v1/metadata", async () => ({ schema_version: db.meta.schema_version, data_version: String(db.meta.data_version), database_kind: "node_json_fullstack" }));
 
-  app.post("/v1/auth/login", async (request, reply) => {
+  app.post("/v1/auth/login", { config: { rateLimit: { max: AUTH_RATE_LIMIT_MAX, timeWindow: AUTH_RATE_LIMIT_WINDOW } } }, async (request, reply) => {
     const body = request.body as { email?: string; password?: string; client_type?: string };
-    const email = (body.email ?? "").toLowerCase();
+    const email = sanitizeText(body.email, 320).toLowerCase();
     const user = db.users.find((item) => item.email.toLowerCase() === email);
     if (user && verifyPassword(email, body.password ?? "", user.password_hash) && !user.password_hash.startsWith("pbkdf2_sha256$")) {
       user.password_hash = passwordHash(email, body.password ?? "");
     }
-    if (!user || user.status !== "active") return reply.status(401).send({ detail: "Invalid credentials" });
-    if (!verifyPassword(email, body.password ?? "", user.password_hash)) return reply.status(401).send({ detail: "Invalid credentials" });
-    if (body.client_type === "admin" && user.role !== "admin") return reply.status(403).send({ detail: "Admin account required" });
+    if (!user || user.status !== "active") {
+      request.log.warn({ email, client_type: body.client_type, ip: normalizedClientIp(request) }, "Failed login attempt");
+      return reply.status(401).send({ detail: "Invalid credentials" });
+    }
+    if (!verifyPassword(email, body.password ?? "", user.password_hash)) {
+      request.log.warn({ email, client_type: body.client_type, ip: normalizedClientIp(request) }, "Failed login attempt");
+      return reply.status(401).send({ detail: "Invalid credentials" });
+    }
+    if (body.client_type === "admin" && user.role !== "admin") {
+      request.log.warn({ email, ip: normalizedClientIp(request) }, "Rejected non-admin dashboard login");
+      return reply.status(403).send({ detail: "Admin account required" });
+    }
     user.last_login_at = now();
     user.updated_at = now();
     const token = tokenFor(user);
-    return { token, user: publicUser(user), expires_at: db.sessions[token].expires_at };
+    return { token, user: publicUser(user), expires_at: sessionForToken(token)?.expires_at };
   });
 
   app.post("/v1/auth/register", async (request, reply) => {
     const body = request.body as { email?: string; password?: string; full_name?: string };
-    const email = (body.email ?? "").toLowerCase();
+    const email = sanitizeText(body.email, 320).toLowerCase();
     if (!email || !body.password) return reply.status(400).send({ detail: "Email and password are required" });
     if (db.users.some((user) => user.email.toLowerCase() === email)) return reply.status(409).send({ detail: "Email already exists" });
-    const user = createItem("users", { email, password_hash: passwordHash(email, body.password), full_name: body.full_name ?? "", role: "student" as UserRole, status: "active" as UserStatus, last_login_at: null }) as User;
+    const user = createItem("users", { email, password_hash: passwordHash(email, body.password), full_name: sanitizeText(body.full_name, 160), role: "student" as UserRole, status: "active" as UserStatus, last_login_at: null }) as User;
     const token = tokenFor(user);
-    return reply.status(201).send({ token, user: publicUser(user), expires_at: db.sessions[token].expires_at });
+    return reply.status(201).send({ token, user: publicUser(user), expires_at: sessionForToken(token)?.expires_at });
   });
 
   app.get("/v1/auth/me", async (request, reply) => {
@@ -722,6 +810,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.post("/v1/auth/logout", async (request, reply) => {
     const token = request.headers.authorization?.replace("Bearer ", "");
     if (token) delete db.sessions[token];
+    if (token) delete db.sessions[sessionKeyFor(token)];
     saveDb(db);
     return reply.status(204).send();
   });
@@ -898,8 +987,24 @@ export async function buildApp(): Promise<FastifyInstance> {
     return { ...payload, signature: signPayload(payload) };
   });
   app.post("/v1/reports", async (request, reply) => {
-    const body = request.body as Partial<Report>;
-    const report: Report = { id: idFor(db, "reports"), question_id: body.question_id ?? null, scanned_text: body.scanned_text ?? "", report_type: body.report_type ?? "other", message: body.message ?? "", contact: body.contact ?? "", status: "open", created_at: now() };
+    const body = request.body as Partial<Report> & { device_id?: string; deviceId?: string };
+    const allowedTypes = new Set(["wrong_answer", "bad_explanation", "outdated", "typo", "other"]);
+    const reportType = sanitizeText(body.report_type, 64);
+    const rawDeviceId = body.device_id ?? body.deviceId;
+    const report: Report = {
+      id: idFor(db, "reports"),
+      question_id: body.question_id === undefined || body.question_id === null ? null : Number(body.question_id),
+      scanned_text: sanitizeText(body.scanned_text, 4000),
+      report_type: allowedTypes.has(reportType) ? reportType : "other",
+      message: sanitizeText(body.message, 2000),
+      contact: sanitizeText(body.contact, 320),
+      status: "open",
+      created_at: now(),
+      ...(rawDeviceId ? { device_hash: sha256(String(rawDeviceId)) } : {})
+    };
+    if (!report.message && !report.scanned_text) {
+      return reply.status(400).send({ detail: "Report message or scanned_text is required" });
+    }
     db.reports.push(report);
     saveDb(db);
     return reply.status(201).send({ report_id: report.id, status: report.status });
@@ -1032,14 +1137,16 @@ export async function buildApp(): Promise<FastifyInstance> {
     const matches = searchQuestions(query.q ?? "", Number(query.limit ?? 3));
     return { answer_source: matches.length ? "verified_db" : "uncertain", matches };
   });
-  app.get("/architecture", async (_request, reply) => {
-    const filePath = join(PROJECT_ROOT, "index.html");
-    return existsSync(filePath) ? sendFile(reply, filePath) : reply.status(404).send("Architecture page not found");
-  });
-  app.get("/architecture.md", async (_request, reply) => {
-    const filePath = join(PROJECT_ROOT, "ARCHITECTURE.md");
-    return existsSync(filePath) ? sendFile(reply, filePath) : reply.status(404).send("Architecture markdown not found");
-  });
+  if (ENABLE_ARCHITECTURE_ROUTES) {
+    app.get("/architecture", async (_request, reply) => {
+      const filePath = join(PROJECT_ROOT, "index.html");
+      return existsSync(filePath) ? sendFile(reply, filePath) : reply.status(404).send("Architecture page not found");
+    });
+    app.get("/architecture.md", async (_request, reply) => {
+      const filePath = join(PROJECT_ROOT, "ARCHITECTURE.md");
+      return existsSync(filePath) ? sendFile(reply, filePath) : reply.status(404).send("Architecture markdown not found");
+    });
+  }
 
   app.get("/", async (_request, reply) => reply.redirect("/dashboard/"));
   app.get("/admin", async (_request, reply) => reply.redirect("/dashboard/"));

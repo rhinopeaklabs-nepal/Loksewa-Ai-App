@@ -1,0 +1,125 @@
+# Loksewa AI — Kong API Gateway Configuration
+# Routes incoming traffic to microservices
+
+_format_version: "3.0"
+
+services:
+  # Auth
+  - name: auth-service
+    url: http://auth-service:3001
+    routes:
+      - name: auth
+        paths:
+          - /v1/auth
+          - /v1/users
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          hour: 1000
+
+  # User
+  - name: user-service
+    url: http://user-service:3002
+    routes:
+      - name: user-profile
+        paths:
+          - /v1/profiles
+          - /v1/preferences
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 120
+
+  # Learning
+  - name: learning-service
+    url: http://learning-service:3003
+    routes:
+      - name: learning
+        paths:
+          - /v1/missions
+          - /v1/answers
+          - /v1/progress
+          - /v1/recommendations
+          - /v1/topics
+          - /v1/lessons
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 300
+
+  # Gamification
+  - name: gamification-service
+    url: http://gamification-service:3004
+    routes:
+      - name: gamification
+        paths:
+          - /v1/leaderboards
+          - /v1/badges
+          - /v1/users/me/xp
+          - /v1/users/me/streak
+          - /v1/users/me/badges
+          - /v1/users/me/activity
+
+  # Knowledge
+  - name: knowledge-service
+    url: http://knowledge-service:3007
+    routes:
+      - name: knowledge
+        paths:
+          - /v1/questions
+          - /v1/search
+          - /v1/admin/questions
+
+  # AI
+  - name: ai-service
+    url: http://ai-service:3006
+    routes:
+      - name: ai
+        paths:
+          - /v1/tutor
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+
+  # Memory
+  - name: memory-service
+    url: http://memory-service:3008
+    routes:
+      - name: memory
+        paths:
+          - /v1/users/me/memories
+
+  # Exam
+  - name: exam-service
+    url: http://exam-service:3009
+    routes:
+      - name: exam
+        paths:
+          - /v1/mock-exams
+
+# Global plugins
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      credentials: true
+
+  - name: jwt
+    config:
+      secret_is_base64: false
+      claims_to_verify:
+        - exp
+
+  - name: prometheus
+    config:
+      per_consumer: false

@@ -55,7 +55,7 @@ Before deploying, verify no secrets have been accidentally committed:
 # Search for common secret patterns in git history
 git log --all --source --remotes -S "change-me" -- "*.env"
 git log --all -S "LOKSEWA_ADMIN_TOKEN"
-git log --all -S "password" -- "*.py"
+git log --all -S "password" -- "*.ts" "*.kt" "*.js"
 ```
 
 If secrets are found in history, rotate them immediately and remove them from history.
@@ -80,17 +80,15 @@ DATABASE_URL="postgresql://user:password@host:5432/loksewa"
 
 ### Loading Environment Variables
 
-In Python/FastAPI, use `python-dotenv`:
+The Node backend loads environment files through `backend/src/env.ts` using `dotenv`:
 
-```python
-# backend/app.py
-from dotenv import load_dotenv
-import os
+```ts
+import { config as loadDotEnv } from "dotenv";
 
-load_dotenv()  # Loads .env in development
+loadDotEnv({ path: ".env.development", override: false, quiet: true });
 
-admin_token = os.getenv("LOKSEWA_ADMIN_TOKEN")
-delta_secret = os.getenv("LOKSEWA_DELTA_SIGNING_SECRET")
+const adminToken = process.env.LOKSEWA_ADMIN_TOKEN;
+const deltaSecret = process.env.LOKSEWA_DELTA_SIGNING_SECRET;
 ```
 
 ### Production Environment
@@ -189,13 +187,13 @@ az keyvault secret show \
 
 Always use cryptographically secure random generation:
 
-**Python:**
-```python
-import secrets
+**Node.js:**
+```js
+import { randomBytes } from "node:crypto";
 
-admin_token = secrets.token_urlsafe(32)  # 256-bit random
-delta_signing_secret = secrets.token_urlsafe(32)
-session_secret = secrets.token_urlsafe(32)  # For Flask/FastAPI sessions
+const adminToken = randomBytes(32).toString("base64url");
+const deltaSigningSecret = randomBytes(32).toString("base64url");
+const sessionSecret = randomBytes(32).toString("base64url");
 ```
 
 **PowerShell:**
@@ -300,21 +298,20 @@ If a secret is compromised:
 
 Log all secret access attempts:
 
-```python
-import logging
+```ts
+import { timingSafeEqual } from "node:crypto";
 
-logger = logging.getLogger("security")
+function safeEqual(left: string, right: string): boolean {
+  const a = Buffer.from(left);
+  const b = Buffer.from(right);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
-def get_secret(name: str) -> str:
-    logger.info(f"Secret access: {name}")
-    # Retrieve from vault/parameter store
-    return secret
-
-def verify_admin_token(token: str) -> bool:
-    stored = get_secret("admin-token")
-    match = secrets.compare_digest(token, stored)
-    logger.info(f"Admin token verification: {'success' if match else 'failure'}")
-    return match
+function verifyAdminToken(token: string, stored: string): boolean {
+  const match = safeEqual(token, stored);
+  logger.info({ success: match }, "Admin token verification");
+  return match;
+}
 ```
 
 ### Alerting

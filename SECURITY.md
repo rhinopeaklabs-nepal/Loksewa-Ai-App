@@ -126,9 +126,8 @@ Complete this checklist before production deployment.
   - Audit for hardcoded passwords or tokens in codebase
 
 - [ ] **Update dependencies**
-  - Run `pip list --outdated` and update vulnerable packages
-  - Check for known vulnerabilities: `pip audit` or equivalent
-  - Update Node.js packages: `npm audit`
+  - Check backend package vulnerabilities: `cd backend && npm audit`
+  - Check Android dependency updates before release builds
 
 - [ ] **Configure CORS properly**
   - Restrict allowed origins for API endpoints
@@ -170,7 +169,7 @@ Complete this checklist before production deployment.
 - [ ] **Document incident response**
   - Procedure for secret rotation if compromised
   - Procedure for user notification if data breach suspected
-  - Contact information for security issues: `[security-email@example.com]`
+  - Contact information for security issues: `security@rhinopeaklabs.com`
 
 ---
 
@@ -272,7 +271,7 @@ server {
 
 If you discover a security vulnerability in Loksewa AI:
 
-**Email:** `[security-email@example.com]`  
+**Email:** `security@rhinopeaklabs.com`  
 **Subject:** `[Security] Brief description of the issue`
 
 Please include:
