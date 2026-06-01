@@ -1,0 +1,11 @@
+appId: com.rhinopeaklabs.loksewa
+---
+- runFlow:
+    when:
+      visible: "Login"
+    file: login-flow.yaml
+- assertVisible: "Dashboard"
+- tapOn: "Profile"
+- assertVisible: "Settings"
+- tapOn: "Logout"
+- assertVisible: "Login"
