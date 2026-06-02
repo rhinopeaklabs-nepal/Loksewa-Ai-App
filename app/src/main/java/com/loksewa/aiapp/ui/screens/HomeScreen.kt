@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -35,7 +36,7 @@ import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Timer
@@ -65,6 +66,8 @@ import com.loksewa.aiapp.ui.components.NeuriseThumbnail
 import com.loksewa.aiapp.ui.components.categoryTint
 import com.loksewa.aiapp.ui.components.courseGradientPairs
 import com.loksewa.aiapp.ui.theme.AccentGreen
+import com.loksewa.aiapp.ui.theme.AccentGold
+import com.loksewa.aiapp.ui.theme.AccentPurple
 import com.loksewa.aiapp.ui.theme.AccentRed
 import com.loksewa.aiapp.ui.theme.BorderLight
 import com.loksewa.aiapp.ui.theme.BrandBlue
@@ -90,7 +93,10 @@ fun HomeScreen(
     scanHistory: List<ScanHistoryEntity>,
     onMockTestClick: () -> Unit,
     onCameraClick: () -> Unit,
+    onStudyClick: () -> Unit,
     onProfileClick: () -> Unit,
+    onAnalyticsClick: () -> Unit,
+    onAiTutorClick: () -> Unit,
     onHistoryItemClick: (Int?, String) -> Unit,
     onClearHistory: () -> Unit
 ) {
@@ -108,34 +114,28 @@ fun HomeScreen(
             }
 
             item {
-                AiCoachPanel(
-                    onCameraClick = onCameraClick,
-                    onMockTestClick = onMockTestClick
+                HomeProgressCard(
+                    stats = stats,
+                    onAnalyticsClick = onAnalyticsClick
                 )
+            }
+
+            item {
+                QuickAccessGrid(
+                    onMockTestClick = onMockTestClick,
+                    onCameraClick = onCameraClick,
+                    onStudyClick = onStudyClick,
+                    onAnalyticsClick = onAnalyticsClick,
+                    onAiTutorClick = onAiTutorClick
+                )
+            }
+
+            item {
+                RecommendedPracticeCard(onMockTestClick = onMockTestClick)
             }
 
             item {
                 SearchBar()
-            }
-
-            item {
-                CourseCategories()
-            }
-
-            item {
-                TrendingCourses(onMockTestClick = onMockTestClick)
-            }
-
-            item {
-                ProgressAndTools(
-                    stats = stats,
-                    onCameraClick = onCameraClick,
-                    onMockTestClick = onMockTestClick
-                )
-            }
-
-            item {
-                FlashcardPreview(onMockTestClick = onMockTestClick)
             }
 
             item {
@@ -173,14 +173,14 @@ private fun HomeHeader(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Hi, $userName",
+                text = "Namaste, $userName",
                 color = TextPrimaryLight,
-                fontSize = 24.sp,
+                fontSize = 21.sp,
                 fontWeight = FontWeight.Black
             )
             Spacer(modifier = Modifier.height(5.dp))
             Text(
-                text = "What is on your mind to learn today?",
+                text = "Keep learning, keep growing.",
                 color = TextSecondaryLight,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
@@ -210,6 +210,208 @@ private fun HomeHeader(
                     modifier = Modifier.size(23.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun HomeProgressCard(
+    stats: UserStatsUiState,
+    onAnalyticsClick: () -> Unit
+) {
+    val progress = when {
+        stats.averageScore > 0 -> (stats.averageScore / 100f).coerceIn(0f, 1f)
+        else -> 0.65f
+    }
+    val progressLabel = "${(progress * 100).toInt()}%"
+
+    NeuriseCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 16,
+        contentPadding = PaddingValues(16.dp)
+    ) {
+        Text(
+            text = "Your Progress",
+            color = TextPrimaryLight,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.size(78.dp),
+                    color = BrandOrange,
+                    trackColor = SurfaceWarm,
+                    strokeWidth = 8.dp
+                )
+                CircularProgressIndicator(
+                    progress = { (progress * 0.72f).coerceIn(0f, 1f) },
+                    modifier = Modifier.size(78.dp),
+                    color = BrandBlue,
+                    trackColor = Color.Transparent,
+                    strokeWidth = 8.dp
+                )
+                Text(
+                    text = progressLabel,
+                    color = TextPrimaryLight,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Great job!",
+                    color = TextPrimaryLight,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    text = "You're on the right track",
+                    color = TextSecondaryLight,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Brush.horizontalGradient(listOf(BrandViolet, BrandBlue)))
+                        .clickable(onClick = onAnalyticsClick)
+                        .padding(horizontal = 13.dp, vertical = 8.dp)
+                ) {
+                    Text("View Analytics", color = TextPrimaryLight, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickAccessGrid(
+    onMockTestClick: () -> Unit,
+    onCameraClick: () -> Unit,
+    onStudyClick: () -> Unit,
+    onAnalyticsClick: () -> Unit,
+    onAiTutorClick: () -> Unit
+) {
+    Column {
+        Text(
+            text = "Quick Access",
+            color = TextPrimaryLight,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                QuickAccessTile("Mock Tests", Icons.AutoMirrored.Filled.Assignment, BrandBlue, onMockTestClick, Modifier.weight(1f))
+                QuickAccessTile("Practice", Icons.Default.Psychology, AccentRed, onMockTestClick, Modifier.weight(1f))
+                QuickAccessTile("Past Questions", Icons.Default.QuestionAnswer, BrandTeal, onCameraClick, Modifier.weight(1f))
+                QuickAccessTile("Study", Icons.Default.School, BrandOrange, onStudyClick, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                QuickAccessTile("Notes", Icons.Default.Gavel, AccentGold, onStudyClick, Modifier.weight(1f))
+                QuickAccessTile("Bookmarks", Icons.Default.Timer, AccentGreen, onStudyClick, Modifier.weight(1f))
+                QuickAccessTile("Current Affairs", Icons.AutoMirrored.Filled.TrendingUp, BrandBlue, onAnalyticsClick, Modifier.weight(1f))
+                QuickAccessTile("AI Tutor", Icons.Default.AutoAwesome, AccentPurple, onAiTutorClick, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickAccessTile(
+    title: String,
+    icon: ImageVector,
+    tint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .height(74.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceLight)
+            .border(1.dp, BorderLight, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(tint.copy(alpha = 0.16f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = title,
+            color = TextPrimaryLight,
+            fontSize = 9.sp,
+            lineHeight = 11.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun RecommendedPracticeCard(onMockTestClick: () -> Unit) {
+    Column {
+        Text(
+            text = "Recommended for You",
+            color = TextPrimaryLight,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(SurfaceLight)
+                .border(1.dp, BorderLight, RoundedCornerShape(14.dp))
+                .clickable(onClick = onMockTestClick)
+                .padding(13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Brush.linearGradient(listOf(BrandViolet, BrandBlue))),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.School, contentDescription = null, tint = TextPrimaryLight, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Geography", color = TextPrimaryLight, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                Text("Continue Practice", color = TextSecondaryLight, fontSize = 11.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { 0.58f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(5.dp)
+                        .clip(CircleShape),
+                    color = BrandBlue,
+                    trackColor = SurfaceWarm
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("12/25", color = TextPrimaryLight, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
     }
 }
@@ -341,7 +543,7 @@ private fun CourseCategories() {
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             val categories = listOf(
-                Triple("GK", Icons.Default.Public, BrandViolet),
+                Triple("GK", Icons.Default.School, BrandViolet),
                 Triple("IQ", Icons.Default.Psychology, BrandTeal),
                 Triple("Admin", Icons.Default.BusinessCenter, BrandBlue),
                 Triple("Law", Icons.Default.Gavel, BrandOrange),
@@ -791,7 +993,7 @@ private val sampleCourses = listOf(
         teacher = "Aruna Sharma",
         tag = "GK",
         price = "Free",
-        icon = Icons.Default.Public
+        icon = Icons.Default.School
     ),
     HomeCourse(
         title = "IQ Reasoning for Loksewa Beginners",

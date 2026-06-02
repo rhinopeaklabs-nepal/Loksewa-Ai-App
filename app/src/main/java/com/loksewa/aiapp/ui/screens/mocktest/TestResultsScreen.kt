@@ -71,6 +71,12 @@ fun TestResultsScreen(
             }
         } else {
             val attempt = state.attempt!!
+            val scoreProgress = if (attempt.totalMarks > 0f) {
+                (attempt.score / attempt.totalMarks).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+            val scorePercent = (scoreProgress * 100).toInt()
 
             Column(
                 modifier = Modifier
@@ -111,27 +117,42 @@ fun TestResultsScreen(
                     contentPadding = PaddingValues(20.dp)
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            modifier = Modifier
-                                .size(74.dp)
-                                .clip(CircleShape)
-                                .background(Brush.linearGradient(listOf(BrandViolet, PrimaryGlow))),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.WorkspacePremium, contentDescription = null, tint = SurfaceLight, modifier = Modifier.size(34.dp))
-                        }
+                        Icon(Icons.Default.WorkspacePremium, contentDescription = null, tint = BrandOrange, modifier = Modifier.size(48.dp))
                         Spacer(modifier = Modifier.height(14.dp))
                         Text(
-                            text = "Your Score",
+                            text = state.mockTest?.title ?: "Full Length Mock Test",
+                            color = TextPrimaryLight,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text("Completed just now", color = TextSecondaryLight, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(18.dp))
+                        Box(contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(
+                                progress = { scoreProgress },
+                                modifier = Modifier.size(148.dp),
+                                color = BrandOrange,
+                                trackColor = SurfaceWarm,
+                                strokeWidth = 9.dp
+                            )
+                            CircularProgressIndicator(
+                                progress = { (scoreProgress * 0.76f).coerceIn(0f, 1f) },
+                                modifier = Modifier.size(148.dp),
+                                color = BrandBlue,
+                                trackColor = androidx.compose.ui.graphics.Color.Transparent,
+                                strokeWidth = 9.dp
+                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("$scorePercent%", color = TextPrimaryLight, fontSize = 38.sp, fontWeight = FontWeight.Black)
+                                Text("Score", color = TextSecondaryLight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = String.format("%.1f / %.1f", attempt.score, attempt.totalMarks),
                             color = TextSecondaryLight,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = String.format("%.1f / %.1f", attempt.score, attempt.totalMarks),
-                            color = BrandViolet,
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Black
                         )
                         Spacer(modifier = Modifier.height(18.dp))
                         Row(

@@ -45,6 +45,7 @@ import com.loksewa.aiapp.ui.components.courseGradientPairs
 import com.loksewa.aiapp.ui.components.NeurisePill
 import com.loksewa.aiapp.ui.components.OptionButton
 import com.loksewa.aiapp.ui.theme.BorderLight
+import com.loksewa.aiapp.ui.theme.BrandBlue
 import com.loksewa.aiapp.ui.theme.BrandTeal
 import com.loksewa.aiapp.ui.theme.BrandViolet
 import com.loksewa.aiapp.ui.theme.BrandVioletLight
@@ -101,7 +102,7 @@ fun TestSessionScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Mock Flashcard",
+                            text = "Practice",
                             color = TextPrimaryLight,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Black
@@ -163,45 +164,33 @@ fun TestSessionScreen(
                     )
                 }
 
-                Box(
+                NeuriseCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(DarkForestGreen)
-                        .padding(22.dp)
+                        .weight(1f),
+                    cornerRadius = 16,
+                    contentPadding = PaddingValues(18.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(SurfaceLight.copy(alpha = 0.12f))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text("Questions", color = SurfaceLight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Text(
-                        text = "${state.currentQuestionIndex + 1}",
-                        color = SurfaceLight,
-                        fontSize = 54.sp,
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.align(Alignment.TopCenter)
-                    )
-                    Text(
-                        text = question.questionText,
-                        color = SurfaceLight,
-                        fontSize = 20.sp,
-                        lineHeight = 28.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
                     Row(
-                        modifier = Modifier.align(Alignment.BottomStart),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = SurfaceLight, modifier = Modifier.size(18.dp))
+                        NeurisePill(label = question.syllabusCategory.ifBlank { "Geography" }, icon = null, selected = true, tint = BrandTeal, background = BrandVioletLight)
+                        NeurisePill(label = question.examLevel.ifBlank { "Easy" }, icon = null, selected = true, tint = BrandTeal, background = BrandVioletLight)
+                    }
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Text(
+                        text = question.questionText,
+                        color = TextPrimaryLight,
+                        fontSize = 19.sp,
+                        lineHeight = 27.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.size(7.dp))
-                        Text("Choose the best answer", color = SurfaceLight.copy(alpha = 0.88f), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Choose the best answer", color = TextSecondaryLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 

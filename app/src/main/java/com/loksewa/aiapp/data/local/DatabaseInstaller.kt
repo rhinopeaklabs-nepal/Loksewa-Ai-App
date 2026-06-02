@@ -6,11 +6,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.util.zip.GZIPInputStream
 
 class DatabaseInstaller(
     private val context: Context,
-    private val assetFileName: String = "loksewa_v1.db.gz",
+    private val assetFileName: String = "loksewa_v1.db",
     private val databaseFileName: String = "loksewa_active.db"
 ) {
     companion object {
@@ -53,13 +52,11 @@ class DatabaseInstaller(
 
     private fun installFromAsset(dbFile: File) {
         context.assets.open(assetFileName).use { inputStream ->
-            GZIPInputStream(inputStream).use { gzipStream ->
-                FileOutputStream(dbFile).use { outputStream ->
-                    val buffer = ByteArray(8192)
-                    var length: Int
-                    while (gzipStream.read(buffer).also { length = it } > 0) {
-                        outputStream.write(buffer, 0, length)
-                    }
+            FileOutputStream(dbFile).use { outputStream ->
+                val buffer = ByteArray(8192)
+                var length: Int
+                while (inputStream.read(buffer).also { length = it } > 0) {
+                    outputStream.write(buffer, 0, length)
                 }
             }
         }

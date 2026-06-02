@@ -14,24 +14,24 @@ data class QuestionEntity(
     @ColumnInfo(name = "option_c") val optionC: String,
     @ColumnInfo(name = "option_d") val optionD: String,
     @ColumnInfo(name = "correct_option") val correctOption: String,
-    val explanation: String,
-    @ColumnInfo(name = "syllabus_category") val syllabusCategory: String,
-    @ColumnInfo(name = "source_name") val sourceName: String,
-    @ColumnInfo(name = "source_url") val sourceUrl: String,
-    @ColumnInfo(name = "source_license") val sourceLicense: String,
+    @ColumnInfo(defaultValue = "") val explanation: String,
+    @ColumnInfo(name = "syllabus_category", defaultValue = "") val syllabusCategory: String,
+    @ColumnInfo(name = "source_name", defaultValue = "") val sourceName: String,
+    @ColumnInfo(name = "source_url", defaultValue = "") val sourceUrl: String,
+    @ColumnInfo(name = "source_license", defaultValue = "") val sourceLicense: String,
     @ColumnInfo(name = "source_year") val sourceYear: Int?,
     @ColumnInfo(name = "source_page") val sourcePage: Int?,
-    @ColumnInfo(name = "exam_level") val examLevel: String,
-    @ColumnInfo(name = "exam_type") val examType: String,
-    val language: String,
-    @ColumnInfo(name = "verification_status") val verificationStatus: String,
-    val verifier: String,
+    @ColumnInfo(name = "exam_level", defaultValue = "") val examLevel: String,
+    @ColumnInfo(name = "exam_type", defaultValue = "") val examType: String,
+    @ColumnInfo(defaultValue = "ne") val language: String,
+    @ColumnInfo(name = "verification_status", defaultValue = "verified") val verificationStatus: String,
+    @ColumnInfo(defaultValue = "") val verifier: String,
     @ColumnInfo(name = "import_batch_id") val importBatchId: Int? = null,
-    @ColumnInfo(name = "data_version") val dataVersion: Int,
+    @ColumnInfo(name = "data_version", defaultValue = "1") val dataVersion: Int,
     @ColumnInfo(name = "verified_at") val verifiedAt: String?,
     @ColumnInfo(name = "deleted_at") val deletedAt: String? = null,
-    @ColumnInfo(name = "created_at") val createdAt: String,
-    @ColumnInfo(name = "updated_at") val updatedAt: String
+    @ColumnInfo(name = "created_at", defaultValue = "CURRENT_TIMESTAMP") val createdAt: String,
+    @ColumnInfo(name = "updated_at", defaultValue = "CURRENT_TIMESTAMP") val updatedAt: String
 )
 
 @Entity(tableName = "app_users")
@@ -39,11 +39,11 @@ data class UserEntity(
     @PrimaryKey val id: Int,
     val email: String,
     @ColumnInfo(name = "password_hash") val passwordHash: String = "",
-    @ColumnInfo(name = "full_name") val fullName: String,
-    val role: String,
-    val status: String,
-    @ColumnInfo(name = "created_at") val createdAt: String,
-    @ColumnInfo(name = "updated_at") val updatedAt: String,
+    @ColumnInfo(name = "full_name", defaultValue = "") val fullName: String,
+    @ColumnInfo(defaultValue = "student") val role: String,
+    @ColumnInfo(defaultValue = "active") val status: String,
+    @ColumnInfo(name = "created_at", defaultValue = "CURRENT_TIMESTAMP") val createdAt: String,
+    @ColumnInfo(name = "updated_at", defaultValue = "CURRENT_TIMESTAMP") val updatedAt: String,
     @ColumnInfo(name = "last_login_at") val lastLoginAt: String?
 )
 
@@ -55,26 +55,26 @@ data class ScanHistoryEntity(
     @ColumnInfo(name = "matched_question_id") val matchedQuestionId: Int?,
     @ColumnInfo(name = "answer_source") val answerSource: String, // verified_db | ai_assisted | ai_only | uncertain
     @ColumnInfo(name = "user_rating") val userRating: Int?, // 1-5
-    @ColumnInfo(name = "created_at") val createdAt: String
+    @ColumnInfo(name = "created_at", defaultValue = "CURRENT_TIMESTAMP") val createdAt: String
 )
 
 @Entity(tableName = "mock_tests")
 data class MockTestEntity(
     @PrimaryKey val id: Int,
     val title: String,
-    val description: String,
-    @ColumnInfo(name = "exam_level") val examLevel: String,
-    @ColumnInfo(name = "exam_type") val examType: String,
-    @ColumnInfo(name = "syllabus_category") val syllabusCategory: String,
-    @ColumnInfo(name = "duration_minutes") val durationMinutes: Int,
-    @ColumnInfo(name = "total_questions") val totalQuestions: Int,
-    @ColumnInfo(name = "marks_per_correct") val marksPerCorrect: Float,
-    @ColumnInfo(name = "negative_marking_enabled") val negativeMarkingEnabled: Boolean,
-    @ColumnInfo(name = "negative_marks_per_wrong") val negativeMarksPerWrong: Float,
-    val status: String,
+    @ColumnInfo(defaultValue = "") val description: String,
+    @ColumnInfo(name = "exam_level", defaultValue = "") val examLevel: String,
+    @ColumnInfo(name = "exam_type", defaultValue = "") val examType: String,
+    @ColumnInfo(name = "syllabus_category", defaultValue = "") val syllabusCategory: String,
+    @ColumnInfo(name = "duration_minutes", defaultValue = "45") val durationMinutes: Int,
+    @ColumnInfo(name = "total_questions", defaultValue = "0") val totalQuestions: Int,
+    @ColumnInfo(name = "marks_per_correct", defaultValue = "1.0") val marksPerCorrect: Float,
+    @ColumnInfo(name = "negative_marking_enabled", defaultValue = "1") val negativeMarkingEnabled: Boolean,
+    @ColumnInfo(name = "negative_marks_per_wrong", defaultValue = "0.2") val negativeMarksPerWrong: Float,
+    @ColumnInfo(defaultValue = "draft") val status: String,
     @ColumnInfo(name = "created_by") val createdBy: Int?,
-    @ColumnInfo(name = "created_at") val createdAt: String,
-    @ColumnInfo(name = "updated_at") val updatedAt: String
+    @ColumnInfo(name = "created_at", defaultValue = "CURRENT_TIMESTAMP") val createdAt: String,
+    @ColumnInfo(name = "updated_at", defaultValue = "CURRENT_TIMESTAMP") val updatedAt: String
 )
 
 @Entity(tableName = "mock_test_attempts")
@@ -82,16 +82,16 @@ data class MockAttemptEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     @ColumnInfo(name = "user_id") val userId: Int,
     @ColumnInfo(name = "mock_test_id") val mockTestId: Int,
-    @ColumnInfo(name = "started_at") val startedAt: String,
+    @ColumnInfo(name = "started_at", defaultValue = "CURRENT_TIMESTAMP") val startedAt: String,
     @ColumnInfo(name = "ends_at") val endsAt: String,
     @ColumnInfo(name = "submitted_at") val submittedAt: String? = null,
-    val status: String,
-    val score: Float,
-    @ColumnInfo(name = "correct_count") val correctCount: Int,
-    @ColumnInfo(name = "wrong_count") val wrongCount: Int,
-    @ColumnInfo(name = "unanswered_count") val unansweredCount: Int,
-    @ColumnInfo(name = "total_questions") val totalQuestions: Int,
-    @ColumnInfo(name = "total_marks") val totalMarks: Float
+    @ColumnInfo(defaultValue = "in_progress") val status: String,
+    @ColumnInfo(defaultValue = "0") val score: Float,
+    @ColumnInfo(name = "correct_count", defaultValue = "0") val correctCount: Int,
+    @ColumnInfo(name = "wrong_count", defaultValue = "0") val wrongCount: Int,
+    @ColumnInfo(name = "unanswered_count", defaultValue = "0") val unansweredCount: Int,
+    @ColumnInfo(name = "total_questions", defaultValue = "0") val totalQuestions: Int,
+    @ColumnInfo(name = "total_marks", defaultValue = "0") val totalMarks: Float
 )
 
 @Entity(
@@ -102,9 +102,9 @@ data class MockTestAnswerEntity(
     @ColumnInfo(name = "attempt_id") val attemptId: Int,
     @ColumnInfo(name = "question_id") val questionId: Int,
     @ColumnInfo(name = "selected_option") val selectedOption: String?, // A | B | C | D
-    @ColumnInfo(name = "is_correct") val isCorrect: Boolean,
-    @ColumnInfo(name = "marks_awarded") val marksAwarded: Float,
-    @ColumnInfo(name = "answered_at") val answeredAt: String
+    @ColumnInfo(name = "is_correct", defaultValue = "0") val isCorrect: Boolean,
+    @ColumnInfo(name = "marks_awarded", defaultValue = "0") val marksAwarded: Float,
+    @ColumnInfo(name = "answered_at", defaultValue = "CURRENT_TIMESTAMP") val answeredAt: String
 )
 
 @Entity(

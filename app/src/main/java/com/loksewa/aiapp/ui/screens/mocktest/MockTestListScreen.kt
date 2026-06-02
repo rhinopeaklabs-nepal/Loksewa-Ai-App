@@ -110,14 +110,7 @@ fun MockTestListScreen(
                 }
 
                 item {
-                    FeaturedExamCard(
-                        totalTests = state.tests.size,
-                        onClick = { state.tests.firstOrNull()?.let { onTestClick(it.id) } }
-                    )
-                }
-
-                item {
-                    NeuriseSectionHeader(title = "Popular mock tests", actionText = "Filter")
+                    NeuriseSectionHeader(title = "Available Mock Tests", actionText = null)
                 }
 
                 itemsIndexed(state.tests) { index, test ->
@@ -147,14 +140,14 @@ private fun MockHeader() {
     ) {
         Column {
             Text(
-                text = "Mock Exam Center",
+                text = "Mock Tests",
                 color = TextPrimaryLight,
                 fontSize = 25.sp,
                 fontWeight = FontWeight.Black
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Practice timed sets with verified questions.",
+                text = "Exam focused practice sets.",
                 color = TextSecondaryLight,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
@@ -234,52 +227,81 @@ private fun MockCourseRow(
     index: Int,
     onClick: () -> Unit
 ) {
-    val gradient = courseGradientPairs[index % courseGradientPairs.size]
-    val icon = if (index % 2 == 0) Icons.Default.Public else Icons.Default.BusinessCenter
+    val isLocked = index >= 3
+    val progress = when (index) {
+        0 -> 0.78f
+        1 -> 0f
+        2 -> 0f
+        else -> 0f
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(SurfaceLight)
-            .border(1.dp, BorderLight, RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
-            .padding(10.dp),
+            .border(1.dp, BorderLight, RoundedCornerShape(14.dp))
+            .clickable(enabled = !isLocked, onClick = onClick)
+            .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        NeuriseThumbnail(
-            icon = icon,
-            accent = gradient.first,
-            secondary = gradient.second,
-            modifier = Modifier.size(88.dp)
-        )
-        Spacer(modifier = Modifier.width(13.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("Popular", color = BrandViolet, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Text(test.examType, color = gradient.first, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = test.title,
                 color = TextPrimaryLight,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 lineHeight = 18.sp,
                 fontWeight = FontWeight.Black,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(9.dp))
+            Spacer(modifier = Modifier.height(5.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MetaPill(icon = Icons.Default.Timer, label = "${test.durationMinutes} min")
                 Text(
-                    text = "${test.totalQuestions} Qs",
-                    color = TextPrimaryLight,
-                    fontSize = 14.sp,
+                    text = "${test.totalQuestions} Questions",
+                    color = TextSecondaryLight,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "•",
+                    color = TextTertiaryLight,
+                    fontSize = 11.sp
+                )
+                Text(
+                    text = "${test.durationMinutes / 60} Hours",
+                    color = TextSecondaryLight,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        if (progress > 0f) {
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.size(44.dp),
+                    color = BrandBlue,
+                    trackColor = SurfaceWarm,
+                    strokeWidth = 4.dp
+                )
+                Text("${(progress * 100).toInt()}%", color = TextPrimaryLight, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (isLocked) SurfaceWarm else BrandVioletLight)
+                    .padding(horizontal = 12.dp, vertical = 7.dp)
+            ) {
+                Text(
+                    text = if (isLocked) "Locked" else "Attempt",
+                    color = if (isLocked) TextTertiaryLight else BrandBlue,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Black
                 )
             }

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.loksewa.aiapp.ui.utils.getFriendlyErrorMessage
 
 data class LoginUiState(
     val isLoading: Boolean = false,
@@ -41,7 +42,7 @@ class LoginViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = result.exceptionOrNull()?.message ?: "Login failed"
+                        error = getFriendlyErrorMessage(result.exceptionOrNull())
                     )
                 }
             }
@@ -71,7 +72,7 @@ class RegisterViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = result.exceptionOrNull()?.message ?: "Registration failed"
+                        error = getFriendlyErrorMessage(result.exceptionOrNull())
                     )
                 }
             }

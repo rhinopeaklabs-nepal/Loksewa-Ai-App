@@ -3,7 +3,7 @@
 -- =====================================================
 -- Events, funnels, BI tables
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp");
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Raw events (append-only, partitioned)
 CREATE TABLE IF NOT EXISTS events (
@@ -73,14 +73,14 @@ CREATE TABLE IF NOT EXISTS daily_metrics (
 -- Topic performance aggregates
 CREATE TABLE IF NOT EXISTS topic_global_stats (
   topic TEXT NOT NULL,
-  subtopic TEXT,
+  subtopic TEXT NOT NULL DEFAULT '',
   date DATE NOT NULL,
   total_attempts INT NOT NULL DEFAULT 0,
   total_correct INT NOT NULL DEFAULT 0,
   unique_users INT NOT NULL DEFAULT 0,
   average_time_ms INT,
   difficulty_rating NUMERIC(3,2),
-  PRIMARY KEY (topic, COALESCE(subtopic, ''), date)
+  PRIMARY KEY (topic, subtopic, date)
 );
 
 -- Funnel tracking

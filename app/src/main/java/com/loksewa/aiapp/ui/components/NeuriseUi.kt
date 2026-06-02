@@ -43,12 +43,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.loksewa.aiapp.ui.theme.AccentGold
 import com.loksewa.aiapp.ui.theme.AccentGreen
 import com.loksewa.aiapp.ui.theme.BackgroundLight
 import com.loksewa.aiapp.ui.theme.BorderLight
 import com.loksewa.aiapp.ui.theme.BrandBlue
 import com.loksewa.aiapp.ui.theme.BrandBlueLight
 import com.loksewa.aiapp.ui.theme.BrandOrange
+import com.loksewa.aiapp.ui.theme.BrandOrangeLight
 import com.loksewa.aiapp.ui.theme.BrandTeal
 import com.loksewa.aiapp.ui.theme.BrandTealLight
 import com.loksewa.aiapp.ui.theme.BrandViolet
@@ -86,7 +88,14 @@ fun NeuriseScreenSurface(
                 lineTo(0f, 0f)
                 close()
             }
-            drawPath(topWave, color = LavenderMist)
+            drawPath(
+                path = topWave,
+                brush = Brush.linearGradient(
+                    colors = listOf(BrandViolet.copy(alpha = 0.22f), Color.Transparent),
+                    start = Offset(size.width * 0.4f, 0f),
+                    end = Offset(size.width, size.height * 0.35f)
+                )
+            )
 
             val middleWave = Path().apply {
                 moveTo(0f, size.height * 0.38f)
@@ -97,7 +106,14 @@ fun NeuriseScreenSurface(
                 cubicTo(size.width * 0.22f, size.height * 0.70f, size.width * 0.14f, size.height * 0.55f, 0f, size.height * 0.60f)
                 close()
             }
-            drawPath(middleWave, color = SoftLilac.copy(alpha = 0.42f))
+            drawPath(
+                path = middleWave,
+                brush = Brush.radialGradient(
+                    colors = listOf(BrandBlue.copy(alpha = 0.16f), Color.Transparent),
+                    center = Offset(size.width * 0.3f, size.height * 0.45f),
+                    radius = size.width * 0.6f
+                )
+            )
 
             val bottomWave = Path().apply {
                 moveTo(0f, size.height * 0.78f)
@@ -107,7 +123,14 @@ fun NeuriseScreenSurface(
                 lineTo(0f, size.height)
                 close()
             }
-            drawPath(bottomWave, color = LavenderWave.copy(alpha = 0.42f))
+            drawPath(
+                path = bottomWave,
+                brush = Brush.linearGradient(
+                    colors = listOf(Color.Transparent, BrandOrange.copy(alpha = 0.08f), BrandViolet.copy(alpha = 0.05f)),
+                    start = Offset(0f, size.height * 0.75f),
+                    end = Offset(size.width * 0.8f, size.height)
+                )
+            )
         }
         content()
     }
@@ -120,12 +143,31 @@ fun NeuriseCard(
     contentPadding: PaddingValues = PaddingValues(16.dp),
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val shape = RoundedCornerShape(cornerRadius.coerceAtMost(18).dp)
     Column(
         modifier = modifier
-            .shadow(10.dp, RoundedCornerShape(cornerRadius.dp), clip = false, ambientColor = BrandViolet.copy(alpha = 0.07f))
-            .clip(RoundedCornerShape(cornerRadius.dp))
+            .shadow(
+                elevation = 8.dp,
+                shape = shape,
+                clip = false,
+                ambientColor = Color.Black.copy(alpha = 0.5f),
+                spotColor = BrandBlue.copy(alpha = 0.16f)
+            )
+            .clip(shape)
             .background(SurfaceLight)
-            .border(1.dp, BorderLight, RoundedCornerShape(cornerRadius.dp))
+            .border(
+                BorderStroke(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            BrandBlue.copy(alpha = 0.22f),
+                            Color.White.copy(alpha = 0.02f),
+                            BrandOrange.copy(alpha = 0.16f)
+                        )
+                    )
+                ),
+                shape = shape
+            )
             .padding(contentPadding),
         content = content
     )
@@ -156,7 +198,7 @@ fun NeuriseSectionHeader(
             ) {
                 Text(
                     text = actionText,
-                    color = BrandViolet,
+                    color = BrandBlue,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -178,8 +220,19 @@ fun NeuriseIconButton(
         modifier = modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(background)
-            .border(1.dp, BorderLight, CircleShape)
+            .background(background.copy(alpha = 0.6f))
+            .border(
+                BorderStroke(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.15f),
+                            Color.White.copy(alpha = 0.02f)
+                        )
+                    )
+                ),
+                shape = CircleShape
+            )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -202,14 +255,29 @@ fun NeurisePill(
     background: Color = BrandVioletLight,
     onClick: (() -> Unit)? = null
 ) {
-    val shape = RoundedCornerShape(15.dp)
+    val shape = RoundedCornerShape(14.dp)
+    val borderBrush = if (selected) {
+        Brush.linearGradient(
+            colors = listOf(
+                tint.copy(alpha = 0.5f),
+                tint.copy(alpha = 0.1f)
+            )
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(
+                Color.White.copy(alpha = 0.12f),
+                Color.White.copy(alpha = 0.02f)
+            )
+        )
+    }
     Row(
         modifier = modifier
             .clip(shape)
-            .background(if (selected) background else SurfaceLight)
-            .border(1.dp, if (selected) tint.copy(alpha = 0.24f) else BorderLight, shape)
+            .background(if (selected) background.copy(alpha = 0.25f) else SurfaceLight.copy(alpha = 0.5f))
+            .border(BorderStroke(1.dp, borderBrush), shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp)
     ) {
@@ -251,10 +319,10 @@ fun NeurisePrimaryButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.height(52.dp),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
-            disabledContainerColor = SurfaceWarm
+            disabledContainerColor = SurfaceWarm.copy(alpha = 0.5f)
         ),
         contentPadding = PaddingValues(0.dp)
     ) {
@@ -262,14 +330,30 @@ fun NeurisePrimaryButton(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    brush = Brush.horizontalGradient(listOf(BrandViolet, PrimaryGlow)),
-                    shape = RoundedCornerShape(18.dp)
+                    brush = Brush.horizontalGradient(listOf(BrandViolet, PrimaryGlow, BrandOrange, AccentGold)),
+                    shape = RoundedCornerShape(14.dp)
+                )
+                .then(
+                    if (enabled) {
+                        Modifier.border(
+                            BorderStroke(
+                                width = 1.dp,
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.25f),
+                                        Color.Transparent
+                                    )
+                                )
+                            ),
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                    } else Modifier
                 ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = text,
-                color = SurfaceLight,
+                color = Color.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.ExtraBold
             )
@@ -288,12 +372,20 @@ fun NeuriseSecondaryButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.height(52.dp),
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, BorderLight),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(
+            1.dp,
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.15f),
+                    Color.White.copy(alpha = 0.02f)
+                )
+            )
+        ),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = SurfaceLight,
+            containerColor = SurfaceLight.copy(alpha = 0.4f),
             contentColor = TextPrimaryLight,
-            disabledContainerColor = SurfaceWarm,
+            disabledContainerColor = SurfaceWarm.copy(alpha = 0.2f),
             disabledContentColor = TextTertiaryLight
         )
     ) {
@@ -345,13 +437,25 @@ fun NeuriseThumbnail(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(
                 Brush.linearGradient(
-                    colors = listOf(accent.copy(alpha = 0.92f), secondary.copy(alpha = 0.92f)),
+                    colors = listOf(accent.copy(alpha = 0.8f), secondary.copy(alpha = 0.8f)),
                     start = Offset.Zero,
                     end = Offset(400f, 400f)
                 )
+            )
+            .border(
+                BorderStroke(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.25f),
+                            Color.White.copy(alpha = 0.05f)
+                        )
+                    )
+                ),
+                shape = RoundedCornerShape(14.dp)
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -360,19 +464,19 @@ fun NeuriseThumbnail(
                 .align(Alignment.TopEnd)
                 .size(58.dp)
                 .clip(CircleShape)
-                .background(SurfaceLight.copy(alpha = 0.18f))
+                .background(Color.White.copy(alpha = 0.12f))
         )
         Box(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(SurfaceLight.copy(alpha = 0.16f))
+                .background(Color.White.copy(alpha = 0.10f))
         )
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = SurfaceLight,
+            tint = Color.White,
             modifier = Modifier.size(30.dp)
         )
     }
@@ -392,18 +496,18 @@ fun NeuriseDivider(
 
 fun categoryTint(index: Int): Pair<Color, Color> {
     return when (index % 5) {
-        0 -> BrandViolet to BrandVioletLight
-        1 -> BrandTeal to BrandTealLight
-        2 -> BrandBlue to BrandBlueLight
-        3 -> BrandOrange to Color(0xFFFFF3DF)
-        else -> AccentGreen to Color(0xFFE1FAEE)
+        0 -> BrandBlue to BrandBlueLight
+        1 -> BrandOrange to BrandOrangeLight
+        2 -> BrandTeal to BrandTealLight
+        3 -> BrandViolet to BrandVioletLight
+        else -> AccentGreen to Color(0x2416C75B)
     }
 }
 
 val courseGradientPairs = listOf(
-    BrandTeal to BrandBlue,
     BrandViolet to PrimaryGlow,
-    BrandOrange to BrandViolet,
+    BrandOrange to AccentGold,
     BrandBlue to BrandTeal,
-    LavenderCanvas to BrandViolet
+    BrandViolet to BrandOrange,
+    LavenderCanvas to BrandBlue
 )

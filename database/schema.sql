@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS database_metadata (
 );
 
 CREATE TABLE IF NOT EXISTS import_batches (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     batch_name TEXT NOT NULL,
     source_name TEXT NOT NULL DEFAULT '',
     source_url TEXT NOT NULL DEFAULT '',
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS import_batches (
 );
 
 CREATE TABLE IF NOT EXISTS app_users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL DEFAULT '',
@@ -38,7 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_app_users_role_status
     ON app_users (role, status);
 
 CREATE TABLE IF NOT EXISTS auth_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id INTEGER NOT NULL,
     token_hash TEXT NOT NULL UNIQUE,
     client_type TEXT NOT NULL DEFAULT 'mobile' CHECK (
@@ -54,7 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_auth_sessions_user
     ON auth_sessions (user_id, expires_at);
 
 CREATE TABLE IF NOT EXISTS loksewa_questions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     public_id TEXT NOT NULL UNIQUE,
     question_text TEXT NOT NULL,
     normalized_question_text TEXT NOT NULL,
@@ -104,7 +104,7 @@ CREATE INDEX IF NOT EXISTS idx_loksewa_questions_deleted
     ON loksewa_questions (deleted_at);
 
 CREATE TABLE IF NOT EXISTS syllabus_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     title TEXT NOT NULL,
     normalized_title TEXT NOT NULL,
     content TEXT NOT NULL,
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS syllabus_entries (
 );
 
 CREATE TABLE IF NOT EXISTS web_scraper_sources (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     name TEXT NOT NULL,
     start_url TEXT NOT NULL UNIQUE,
     allowed_domain TEXT NOT NULL DEFAULT '',
@@ -156,7 +156,7 @@ CREATE INDEX IF NOT EXISTS idx_web_scraper_cache_source
     ON web_scraper_cache (source_id, fetched_at DESC);
 
 CREATE TABLE IF NOT EXISTS web_scraper_documents (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     source_id INTEGER NOT NULL,
     syllabus_entry_id INTEGER,
     url TEXT NOT NULL UNIQUE,
@@ -174,7 +174,7 @@ CREATE INDEX IF NOT EXISTS idx_web_scraper_documents_category
     ON web_scraper_documents (syllabus_category, last_seen_at DESC);
 
 CREATE TABLE IF NOT EXISTS web_scraper_runs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     source_id INTEGER,
     status TEXT NOT NULL DEFAULT 'running' CHECK (
         status IN ('running', 'completed', 'failed')
@@ -192,7 +192,7 @@ CREATE INDEX IF NOT EXISTS idx_web_scraper_runs_started
     ON web_scraper_runs (started_at DESC);
 
 CREATE TABLE IF NOT EXISTS learning_subjects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     slug TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
@@ -210,7 +210,7 @@ CREATE INDEX IF NOT EXISTS idx_learning_subjects_status
     ON learning_subjects (status, sort_order, title);
 
 CREATE TABLE IF NOT EXISTS learning_courses (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     subject_id INTEGER NOT NULL,
     slug TEXT NOT NULL UNIQUE,
     short_name TEXT NOT NULL DEFAULT '',
@@ -244,7 +244,7 @@ CREATE INDEX IF NOT EXISTS idx_learning_courses_status
     ON learning_courses (status, sort_order, title);
 
 CREATE TABLE IF NOT EXISTS learning_course_modules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     course_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     lessons INTEGER NOT NULL DEFAULT 0 CHECK (lessons >= 0),
@@ -261,7 +261,7 @@ CREATE INDEX IF NOT EXISTS idx_learning_course_modules_course
     ON learning_course_modules (course_id, sort_order, id);
 
 CREATE TABLE IF NOT EXISTS learning_course_tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     course_id INTEGER,
     title TEXT NOT NULL,
     subtitle TEXT NOT NULL DEFAULT '',
@@ -281,7 +281,7 @@ CREATE INDEX IF NOT EXISTS idx_learning_course_tasks_course
     ON learning_course_tasks (course_id, sort_order, id);
 
 CREATE TABLE IF NOT EXISTS learning_course_questions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     course_id INTEGER NOT NULL,
     mode TEXT NOT NULL DEFAULT 'Practice',
     prompt TEXT NOT NULL,
@@ -303,7 +303,7 @@ CREATE INDEX IF NOT EXISTS idx_learning_course_questions_course
     ON learning_course_questions (course_id, sort_order, id);
 
 CREATE TABLE IF NOT EXISTS learning_course_mistakes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     course_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     reason TEXT NOT NULL DEFAULT '',
@@ -317,7 +317,7 @@ CREATE INDEX IF NOT EXISTS idx_learning_course_mistakes_course
     ON learning_course_mistakes (course_id, sort_order, id);
 
 CREATE TABLE IF NOT EXISTS scan_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     scanned_text TEXT NOT NULL,
     normalized_scanned_text TEXT NOT NULL,
     matched_question_id INTEGER,
@@ -330,7 +330,7 @@ CREATE TABLE IF NOT EXISTS scan_history (
 );
 
 CREATE TABLE IF NOT EXISTS user_reports (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     question_id INTEGER,
     scanned_text TEXT NOT NULL DEFAULT '',
     report_type TEXT NOT NULL CHECK (
@@ -347,7 +347,7 @@ CREATE TABLE IF NOT EXISTS user_reports (
 );
 
 CREATE TABLE IF NOT EXISTS mock_tests (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     exam_level TEXT NOT NULL DEFAULT '',
@@ -384,7 +384,7 @@ CREATE INDEX IF NOT EXISTS idx_mock_test_questions_question
     ON mock_test_questions (question_id);
 
 CREATE TABLE IF NOT EXISTS mock_test_attempts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id INTEGER NOT NULL,
     mock_test_id INTEGER NOT NULL,
     started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -485,7 +485,7 @@ BEGIN
 END;
 
 CREATE TABLE IF NOT EXISTS topic_notes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     subject_id TEXT NOT NULL,
     title TEXT NOT NULL,
     content_beginner TEXT NOT NULL,
@@ -497,7 +497,7 @@ CREATE TABLE IF NOT EXISTS topic_notes (
 );
 
 CREATE TABLE IF NOT EXISTS flashcards (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     question_id INTEGER,
     topic_id INTEGER,
     front TEXT NOT NULL,
@@ -507,7 +507,7 @@ CREATE TABLE IF NOT EXISTS flashcards (
 );
 
 CREATE TABLE IF NOT EXISTS study_progress (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     user_id INTEGER NOT NULL,
     topic_id INTEGER NOT NULL,
     completion_percentage REAL NOT NULL DEFAULT 0.0,
@@ -518,7 +518,7 @@ CREATE TABLE IF NOT EXISTS study_progress (
 );
 
 CREATE TABLE IF NOT EXISTS ai_lessons (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     question_id INTEGER NOT NULL UNIQUE,
     lesson_simple TEXT NOT NULL,
     lesson_detailed TEXT NOT NULL,
@@ -533,7 +533,7 @@ CREATE TABLE IF NOT EXISTS ai_lessons (
 
 -- Normalized question tags table (replaces JSON in ai_lessons.related_mcqs)
 CREATE TABLE IF NOT EXISTS question_tags (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     tag TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

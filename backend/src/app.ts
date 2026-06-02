@@ -101,7 +101,17 @@ type MockAnswer = DbRecord & {
   marks_awarded: number;
   answered_at: string | null;
 };
-type User = DbRecord & { email: string; password_hash: string; full_name: string; role: UserRole; status: UserStatus; last_login_at: string | null };
+type User = DbRecord & {
+  email: string;
+  password_hash: string;
+  full_name: string;
+  role: UserRole;
+  status: UserStatus;
+  last_login_at: string | null;
+  auth_provider?: "password" | "google";
+  google_sub?: string | null;
+  picture_url?: string | null;
+};
 type Report = { id: number; question_id: number | null; scanned_text: string; report_type: string; message: string; contact: string; status: string; created_at: string; device_hash?: string };
 type ScraperSource = DbRecord & { name: string; start_url: string; allowed_domain: string; syllabus_category: string; max_depth: number; max_pages: number; refresh_minutes: number; status: "active" | "paused" | "archived"; last_crawled_at: string | null };
 type ScraperRun = { id: number; source_id: number | null; status: "running" | "completed" | "failed"; started_at: string; finished_at: string | null; pages_seen: number; pages_saved: number; pages_skipped: number; message: string };
@@ -518,6 +528,119 @@ function tokenFor(user: User): string {
   return token;
 }
 
+async function googleProfileFromBody(body: {
+  id_token?: string;
+  idToken?: string;
+  email?: string;
+  full_name?: string;
+  fullName?: string;
+  name?: string;
+  picture?: string;
+  picture_url?: string;
+  pictureUrl?: string;
+  sub?: string;
+}) {
+  const idToken = sanitizeText(body.id_token ?? body.idToken, 4096);
+  const configuredClientId = sanitizeText(process.env.GOOGLE_CLIENT_ID, 256);
+
+  if (idToken && configuredClientId) {
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`, {
+      signal: AbortSignal.timeout(Number(process.env.GOOGLE_TOKENINFO_TIMEOUT_MS ?? 8000))
+    });
+    if (!response.ok) {
+      throw new Error("Google token verification failed");
+    }
+    const tokenInfo = await response.json() as {
+      aud?: string;
+      sub?: string;
+      email?: string;
+      email_verified?: string | boolean;
+      name?: string;
+      picture?: string;
+    };
+    if (tokenInfo.aud !== configuredClientId) {
+      throw new Error("Google token audience does not match this backend");
+    }
+    if (tokenInfo.email_verified !== true && tokenInfo.email_verified !== "true") {
+      throw new Error("Google account email is not verified");
+    }
+    return {
+      email: sanitizeText(tokenInfo.email, 320).toLowerCase(),
+      fullName: sanitizeText(tokenInfo.name, 160),
+      pictureUrl: sanitizeText(tokenInfo.picture, 600),
+      googleSub: sanitizeText(tokenInfo.sub, 160)
+    };
+  }
+
+  if (IS_PRODUCTION) {
+    throw new Error("Google ID token is required in production");
+  }
+
+  const email = sanitizeText(body.email, 320).toLowerCase();
+  if (!email) {
+    throw new Error("Google email is required for development login");
+  }
+  return {
+    email,
+    fullName: sanitizeText(body.full_name ?? body.fullName ?? body.name, 160) || "Loksewa Student",
+    pictureUrl: sanitizeText(body.picture_url ?? body.pictureUrl ?? body.picture, 600),
+    googleSub: sanitizeText(body.sub, 160) || `dev:${email}`
+  };
+}
+
+async function handleGoogleLogin(request: FastifyRequest, reply: FastifyReply) {
+  const body = request.body as Parameters<typeof googleProfileFromBody>[0];
+  try {
+    const profile = await googleProfileFromBody(body ?? {});
+    if (!profile.email.includes("@")) {
+      return reply.status(400).send({ detail: "Valid Google email is required" });
+    }
+
+    let user = db.users.find((item) => item.email.toLowerCase() === profile.email);
+    if (user?.status === "disabled") {
+      return reply.status(403).send({ detail: "Account is disabled" });
+    }
+
+    if (user) {
+      user.full_name = profile.fullName || user.full_name || "Loksewa Student";
+      user.auth_provider = "google";
+      user.google_sub = profile.googleSub || user.google_sub || null;
+      user.picture_url = profile.pictureUrl || user.picture_url || null;
+      user.last_login_at = now();
+      user.updated_at = now();
+      saveDb(db);
+    } else {
+      user = createItem("users", {
+        email: profile.email,
+        password_hash: passwordHash(profile.email, randomUUID()),
+        full_name: profile.fullName || "Loksewa Student",
+        role: "student" as UserRole,
+        status: "active" as UserStatus,
+        last_login_at: now(),
+        auth_provider: "google" as const,
+        google_sub: profile.googleSub || null,
+        picture_url: profile.pictureUrl || null
+      }) as User;
+    }
+
+    const token = tokenFor(user);
+    const expiresAt = sessionForToken(token)?.expires_at;
+    return {
+      token,
+      accessToken: token,
+      refreshToken: token,
+      expires_at: expiresAt,
+      expiresAt,
+      user: publicUser(user)
+    };
+  } catch (error) {
+    request.log.warn({ error, ip: normalizedClientIp(request) }, "Google login rejected");
+    return reply.status(401).send({
+      detail: error instanceof Error ? error.message : "Google login failed"
+    });
+  }
+}
+
 function sessionForToken(token: string): { user_id: number; expires_at: string } | null {
   const key = sessionKeyFor(token);
   const session = db.sessions[key] ?? db.sessions[token];
@@ -800,6 +923,21 @@ export async function buildApp(): Promise<FastifyInstance> {
     const user = createItem("users", { email, password_hash: passwordHash(email, body.password), full_name: sanitizeText(body.full_name, 160), role: "student" as UserRole, status: "active" as UserStatus, last_login_at: null }) as User;
     const token = tokenFor(user);
     return reply.status(201).send({ token, user: publicUser(user), expires_at: sessionForToken(token)?.expires_at });
+  });
+
+  app.post("/v1/auth/google", { config: { rateLimit: { max: AUTH_RATE_LIMIT_MAX, timeWindow: AUTH_RATE_LIMIT_WINDOW } } }, handleGoogleLogin);
+  app.post("/api/auth/google", { config: { rateLimit: { max: AUTH_RATE_LIMIT_MAX, timeWindow: AUTH_RATE_LIMIT_WINDOW } } }, handleGoogleLogin);
+
+  app.post("/v1/auth/forgot-password", { config: { rateLimit: { max: AUTH_RATE_LIMIT_MAX, timeWindow: AUTH_RATE_LIMIT_WINDOW } } }, async (request, reply) => {
+    const body = request.body as { email?: string };
+    const email = sanitizeText(body.email, 320).toLowerCase();
+    if (!email || !email.includes("@")) {
+      return reply.status(400).send({ detail: "Valid email is required" });
+    }
+    request.log.info({ email }, "Password reset requested");
+    return reply.status(202).send({
+      detail: "If this account exists, password reset instructions will be sent."
+    });
   });
 
   app.get("/v1/auth/me", async (request, reply) => {

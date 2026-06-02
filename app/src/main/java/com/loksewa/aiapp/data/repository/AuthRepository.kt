@@ -96,6 +96,7 @@ class AuthRepository @Inject constructor(
                 Result.failure(Exception(response.message().ifBlank { "Invalid email or password" }))
             }
         } catch (e: Exception) {
+            android.util.Log.e("AuthRepository", "Login error occurred", e)
             Result.failure(e)
         }
     }

@@ -1,0 +1,3 @@
+-keep class com.loksewa.aiapp.LoksewaApplication { *; }
+-keep class com.loksewa.aiapp.Hilt_LoksewaApplication { *; }
+-keep class com.loksewa.aiapp.MainActivity { *; }

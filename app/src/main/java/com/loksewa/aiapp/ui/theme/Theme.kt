@@ -17,16 +17,16 @@ private val LightColorScheme = lightColorScheme(
     primaryContainer      = BrandVioletLight,
     onPrimaryContainer    = BrandViolet,
     secondary             = BrandBlue,
-    onSecondary           = Color.White,
+    onSecondary           = Color(0xFF08090C), // Dark text on bright cyber cyan/blue
     secondaryContainer    = BrandBlueLight,
     onSecondaryContainer  = BrandBlue,
     tertiary              = BrandOrange,
-    onTertiary            = Color.White,
+    onTertiary            = Color(0xFF08090C), // Dark text on golden orange accent
     tertiaryContainer     = BrandOrangeLight,
     onTertiaryContainer   = BrandOrange,
     error                 = StatusError,
     onError               = Color.White,
-    errorContainer        = Color(0xFFFEE2E2),
+    errorContainer        = Color(0x33EF4444),
     onErrorContainer      = StatusError,
     background            = BackgroundLight,
     onBackground          = TextPrimaryLight,
@@ -54,9 +54,9 @@ fun LoksewaTheme(
             activity.enableEdgeToEdge()
             val window = activity.window
             WindowInsetsControllerCompat(window, view).apply {
-                // True = Dark icons for light theme background
-                isAppearanceLightStatusBars     = true
-                isAppearanceLightNavigationBars = true
+                // False = Light icons for dark theme background
+                isAppearanceLightStatusBars     = false
+                isAppearanceLightNavigationBars = false
             }
             WindowCompat.setDecorFitsSystemWindows(window, false)
         }

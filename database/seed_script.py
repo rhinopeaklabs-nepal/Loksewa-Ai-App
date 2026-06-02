@@ -153,7 +153,8 @@ def build_database(input_path: Path, output_path: Path, app_version: str) -> Non
                     "viewer that has the database open, then rerun the seed script."
                 ) from exc
 
-    with sqlite3.connect(output_path) as connection:
+    connection = sqlite3.connect(output_path)
+    try:
         connection.execute("PRAGMA foreign_keys = ON")
         connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
         insert_questions(connection, rows)
@@ -164,6 +165,9 @@ def build_database(input_path: Path, output_path: Path, app_version: str) -> Non
         connection.commit()
         connection.execute("PRAGMA optimize")
         connection.execute("VACUUM")
+    finally:
+        connection.close()
+    clean_database(output_path)
 
 
 def compress_gzip(source: Path) -> Path:
@@ -220,5 +224,175 @@ def main() -> None:
         print(f"Compressed asset: {compressed_path}")
 
 
+
+def clean_database(db_path: Path):
+    import os
+    temp_db_path = db_path.parent / (db_path.name + ".temp_clean")
+    
+    if temp_db_path.exists():
+        temp_db_path.unlink()
+        
+    conn_orig = sqlite3.connect(db_path)
+    cur_orig = conn_orig.cursor()
+    
+    conn_new = sqlite3.connect(temp_db_path)
+    cur_new = conn_new.cursor()
+    
+    clean_schemas = {
+        "app_users": """
+            CREATE TABLE app_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                full_name TEXT NOT NULL DEFAULT '',
+                role TEXT NOT NULL DEFAULT 'student',
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_login_at TEXT
+            );
+        """,
+        "loksewa_questions": """
+            CREATE TABLE loksewa_questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                public_id TEXT NOT NULL UNIQUE,
+                question_text TEXT NOT NULL,
+                normalized_question_text TEXT NOT NULL,
+                option_a TEXT NOT NULL,
+                option_b TEXT NOT NULL,
+                option_c TEXT NOT NULL,
+                option_d TEXT NOT NULL,
+                correct_option TEXT NOT NULL,
+                explanation TEXT NOT NULL DEFAULT '',
+                syllabus_category TEXT NOT NULL DEFAULT '',
+                source_name TEXT NOT NULL DEFAULT '',
+                source_url TEXT NOT NULL DEFAULT '',
+                source_license TEXT NOT NULL DEFAULT '',
+                source_year INTEGER,
+                source_page INTEGER,
+                exam_level TEXT NOT NULL DEFAULT '',
+                exam_type TEXT NOT NULL DEFAULT '',
+                language TEXT NOT NULL DEFAULT 'ne',
+                verification_status TEXT NOT NULL DEFAULT 'verified',
+                verifier TEXT NOT NULL DEFAULT '',
+                import_batch_id INTEGER,
+                data_version INTEGER NOT NULL DEFAULT 1,
+                verified_at TEXT,
+                deleted_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        """,
+        "scan_history": """
+            CREATE TABLE scan_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                scanned_text TEXT NOT NULL,
+                normalized_scanned_text TEXT NOT NULL,
+                matched_question_id INTEGER,
+                answer_source TEXT NOT NULL,
+                user_rating INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        """,
+        "mock_tests": """
+            CREATE TABLE mock_tests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                exam_level TEXT NOT NULL DEFAULT '',
+                exam_type TEXT NOT NULL DEFAULT '',
+                syllabus_category TEXT NOT NULL DEFAULT '',
+                duration_minutes INTEGER NOT NULL DEFAULT 45,
+                total_questions INTEGER NOT NULL DEFAULT 0,
+                marks_per_correct REAL NOT NULL DEFAULT 1.0,
+                negative_marking_enabled INTEGER NOT NULL DEFAULT 1,
+                negative_marks_per_wrong REAL NOT NULL DEFAULT 0.2,
+                status TEXT NOT NULL DEFAULT 'draft',
+                created_by INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        """,
+        "mock_test_attempts": """
+            CREATE TABLE mock_test_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                user_id INTEGER NOT NULL,
+                mock_test_id INTEGER NOT NULL,
+                started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ends_at TEXT NOT NULL,
+                submitted_at TEXT,
+                status TEXT NOT NULL DEFAULT 'in_progress',
+                score REAL NOT NULL DEFAULT 0,
+                correct_count INTEGER NOT NULL DEFAULT 0,
+                wrong_count INTEGER NOT NULL DEFAULT 0,
+                unanswered_count INTEGER NOT NULL DEFAULT 0,
+                total_questions INTEGER NOT NULL DEFAULT 0,
+                total_marks REAL NOT NULL DEFAULT 0
+            );
+        """,
+        "mock_test_answers": """
+            CREATE TABLE mock_test_answers (
+                attempt_id INTEGER NOT NULL,
+                question_id INTEGER NOT NULL,
+                selected_option TEXT,
+                is_correct INTEGER NOT NULL DEFAULT 0,
+                marks_awarded REAL NOT NULL DEFAULT 0,
+                answered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (attempt_id, question_id)
+            );
+        """,
+        "mock_test_questions": """
+            CREATE TABLE mock_test_questions (
+                mock_test_id INTEGER NOT NULL,
+                question_id INTEGER NOT NULL,
+                position INTEGER NOT NULL,
+                PRIMARY KEY (mock_test_id, question_id)
+            );
+        """
+    }
+    
+    cur_orig.execute("SELECT name, type, sql FROM sqlite_master WHERE sql IS NOT NULL;")
+    db_objects = cur_orig.fetchall()
+    
+    for name, type_val, sql in db_objects:
+        if type_val == "table":
+            if name.startswith("sqlite_"):
+                continue
+            if name.startswith("fts_") and (name.endswith("_data") or name.endswith("_idx") or name.endswith("_docsize") or name.endswith("_config")):
+                continue
+            if name in clean_schemas:
+                cur_new.execute(clean_schemas[name])
+            else:
+                cur_new.execute(sql)
+                
+    conn_new.commit()
+    conn_new.close()
+    
+    conn_new = sqlite3.connect(temp_db_path)
+    cur_new = conn_new.cursor()
+    cur_new.execute(f"ATTACH DATABASE '{db_path}' AS orig;")
+    
+    for name, type_val, sql in db_objects:
+        if type_val == "table" and not name.startswith("fts_") and not name.startswith("sqlite_"):
+            cur_new.execute(f"INSERT OR IGNORE INTO {name} SELECT * FROM orig.{name};")
+            
+    conn_new.commit()
+    
+    for name, type_val, sql in db_objects:
+        if type_val == "trigger":
+            cur_new.execute(sql)
+            
+    conn_new.commit()
+    cur_new.execute("DETACH DATABASE orig;")
+    conn_new.close()
+    
+    conn_orig.close()
+    
+    db_path.unlink()
+    temp_db_path.rename(db_path)
+    print("Database schema successfully cleaned and stripped of constraints.")
+
+
 if __name__ == "__main__":
     main()
+

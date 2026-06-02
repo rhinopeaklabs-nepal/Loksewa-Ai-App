@@ -42,7 +42,7 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -116,215 +116,425 @@ fun CourseScreen(
     val courses = remember(uiState.courses, uiState.details) {
         uiState.courses.toLearningCourses(uiState.details).ifEmpty { courseCatalog }
     }
-    var selectedCourseId by remember { mutableStateOf(courseCatalog.first().id) }
-    var targetScore by remember { mutableIntStateOf(82) }
-    var completedTaskIds by remember { mutableStateOf(setOf<String>()) }
+    
+    var selectedTab by remember { mutableIntStateOf(0) } // 0 = All, 1 = Subjects, 2 = Bookmarks
     var activeDialog by remember { mutableStateOf<LearningDialog?>(null) }
-
-    LaunchedEffect(courses) {
-        if (courses.none { it.id == selectedCourseId }) {
-            selectedCourseId = courses.first().id
-        }
+    
+    // Bookmarks state
+    var bookmarkFilter by remember { mutableStateOf("All") }
+    var bookmarksList by remember {
+        mutableStateOf(
+            listOf(
+                BookmarkItem("b1", "Which is the longest river in Nepal?", "Questions", "Geography", "The longest river in Nepal is the Karnali River (507 km within Nepal)."),
+                BookmarkItem("b2", "Article 75 of Constitution of Nepal", "Notes", "Constitution", "Executive Power: The executive power of Nepal shall, pursuant to this Constitution and law, be vested in the Council of Ministers."),
+                BookmarkItem("b3", "Historical Background of unification of Nepal", "Materials", "History", "King Prithvi Narayan Shah of Gorkha initiated the unification of Nepal in 1744 AD by capturing Nuwakot."),
+                BookmarkItem("b4", "Who is the current Governor of Nepal Rastra Bank?", "Questions", "Economics", "Maha Prasad Adhikari is the current governor of Nepal Rastra Bank."),
+                BookmarkItem("b5", "Federal Structure of Nepal", "Notes", "Constitution", "Pursuant to Article 56, the main structure of the Federal Democratic Republic of Nepal shall be three levels: Federation, Province, and Local level."),
+                BookmarkItem("b6", "Official Syllabus of Section Officer (GK Part)", "Materials", "GK", "The general knowledge part of Section Officer covers Geography, History, Art & Culture, Science & Tech, Constitution, and International Relations.")
+            )
+        )
     }
-
-    LaunchedEffect(selectedCourseId) {
-        onLoadCourseDetail(selectedCourseId)
+    
+    // Subjects state
+    val subjectsList = remember {
+        listOf(
+            SubjectMaterialItem("Nepal Constitution", 14, Icons.Default.Gavel, "gk", BrandViolet),
+            SubjectMaterialItem("Nepal Geography", 12, Icons.Default.School, "gk", BrandTeal),
+            SubjectMaterialItem("Nepal History", 10, Icons.AutoMirrored.Filled.LibraryBooks, "gk", BrandOrange),
+            SubjectMaterialItem("Economics", 8, Icons.Default.BusinessCenter, "gk", BrandBlue),
+            SubjectMaterialItem("GK", 20, Icons.Default.Timer, "gk", AccentGreen)
+        )
     }
-
-    val selectedCourse = courses.firstOrNull { it.id == selectedCourseId } ?: courses.first()
-    val selectedDetail = uiState.details[selectedCourseId]
-    val sectionTasks = selectedDetail?.tasks
-        ?.map { it.toLearningTask(selectedCourseId) }
-        ?.takeIf { it.isNotEmpty() }
-        ?: learningTasks.filter { it.courseId == selectedCourseId || it.courseId == "all" }
-    val mistakeItems = selectedDetail?.mistakes
-        ?.map { it.toMistakeItem(selectedCourseId) }
-        ?.takeIf { it.isNotEmpty() }
-        ?: mistakeBook.filter { it.courseId == selectedCourseId }
-    val completedInSection = sectionTasks.count { completedTaskIds.contains(it.id) }
-    val dynamicProgress = (selectedCourse.progress + completedInSection * 7).coerceAtMost(100)
-    val aiScore = (selectedCourse.aiScore + completedInSection * 3).coerceAtMost(99)
-    val totalProgress = ((courses.sumOf { it.progress } + completedTaskIds.size * 5) / courses.size).coerceAtMost(100)
-    val forecast = (aiScore + ((targetScore - aiScore) / 3)).coerceAtMost(targetScore)
 
     fun showInfo(title: String, message: String) {
         activeDialog = LearningDialog(title = title, message = message)
     }
 
-    fun adjustTarget(delta: Int) {
-        val nextTarget = (targetScore + delta).coerceIn(50, 100)
-        if (nextTarget == targetScore) {
-            showInfo(
-                title = "Target limit reached",
-                message = "Targets can stay between 50 and 100. Keep this realistic so the AI plan can protect revision time."
-            )
-        } else {
-            targetScore = nextTarget
-            showInfo(
-                title = "Target updated",
-                message = "Your AI plan now recalculates around a $nextTarget target score with extra practice on ${selectedCourse.title}."
-            )
-        }
-    }
-
     NeuriseScreenSurface {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
         ) {
-            item {
-                LearningHeader(
-                    title = "AI Learning",
-                    subtitle = "Target, detail, practice, score, retry",
-                    actionIcon = Icons.Default.Search,
-                    onActionClick = {
-                        showInfo(
-                            title = "Search learning library",
-                            message = "Search will look through lessons, flashcards, scanned questions, weak topics, and saved mistakes. Use it when you want one topic instead of a full course."
-                        )
-                    }
-                )
-            }
-
-            item {
-                TargetPlanCard(
-                    targetScore = targetScore,
-                    forecast = forecast,
-                    totalProgress = totalProgress,
-                    onDecrease = { adjustTarget(-2) },
-                    onIncrease = { adjustTarget(2) },
-                    onExplainClick = {
-                        showInfo(
-                            title = "AI target plan",
-                            message = "The coach compares your target, recent mock score, weak lessons, unfinished tasks, and retry history. Then it builds a daily pattern: learn, practice, score, retry, mock."
-                        )
-                    }
-                )
-            }
-
-            item {
-                CourseStrip(
-                    courses = courses,
-                    selectedCourseId = selectedCourseId,
-                    onSelect = { course ->
-                        selectedCourseId = course.id
-                        showInfo(
-                            title = "${course.shortName} course selected",
-                            message = "The course detail, practice tasks, AI score, and weak topics are now tuned for ${course.title}."
-                        )
-                    }
-                )
-            }
-
-            item {
-                AiCoachCard(
-                    course = selectedCourse,
-                    aiScore = aiScore,
-                    dynamicProgress = dynamicProgress,
-                    onOpenDetail = { onOpenCourseDetail(selectedCourse.id) },
-                    onStartLearning = { onStartLearning(selectedCourse.id) }
-                )
-            }
-
-            item {
-                LearningMetricsCard(
-                    readiness = totalProgress,
-                    aiScore = aiScore,
-                    weakCount = mistakeItems.size,
-                    accent = selectedCourse.color
-                )
-            }
-
-            item {
-                NeuriseSectionHeader(
-                    title = "Courses",
-                    actionText = "View Detail",
-                    onActionClick = { onOpenCourseDetail(selectedCourse.id) }
-                )
-            }
-
-            items(courses) { course ->
-                CourseCatalogCard(
-                    course = course,
-                    selected = course.id == selectedCourseId,
-                    onClick = { onOpenCourseDetail(course.id) },
-                    onStartLearning = { onStartLearning(course.id) }
-                )
-            }
-
-            item {
-                NeuriseSectionHeader(
-                    title = "Practice Pattern",
-                    actionText = "AI Score",
-                    onActionClick = {
-                        showInfo(
-                            title = "AI scoring loop",
-                            message = "Every task follows the same loop: attempt, instant score estimate, weakness reason, focused retry, then a small mock to confirm improvement."
-                        )
-                    }
-                )
-            }
-
-            items(sectionTasks) { task ->
-                PracticeTaskCard(
-                    task = task,
-                    completed = completedTaskIds.contains(task.id),
-                    accent = selectedCourse.color,
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Study Materials",
+                        color = TextPrimaryLight,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Text(
+                        text = "Syllabus, notes, bookmarks & search",
+                        color = TextSecondaryLight,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                
+                NeuriseIconButton(
+                    icon = Icons.Default.Search,
+                    contentDescription = "Search",
                     onClick = {
-                        completedTaskIds = completedTaskIds + task.id
-                        activeDialog = LearningDialog(
-                            title = task.alertTitle,
-                            message = "${task.alertMessage}\n\nAI score estimate: ${(aiScore + task.scoreBoost).coerceAtMost(99)}. Next retry difficulty: ${task.nextDifficulty}.",
-                            confirmText = "Start Flow",
-                            dismissText = "Later",
-                            onConfirm = { onStartLearning(selectedCourse.id) }
-                        )
-                    }
-                )
-            }
-
-            item {
-                MistakeBookCard(
-                    mistakes = mistakeItems,
-                    accent = selectedCourse.color,
-                    onMistakeClick = { mistake ->
-                        activeDialog = LearningDialog(
-                            title = "Retry mistake",
-                            message = "Retrying '${mistake.title}' opens the guided session at a related question, then compares your new answer path with the last mistake.",
-                            confirmText = "Start Retry",
-                            dismissText = "Cancel",
-                            onConfirm = { onStartLearning(selectedCourse.id) }
-                        )
-                    }
-                )
-            }
-
-            item {
-                MockPathCard(
-                    targetScore = targetScore,
-                    course = selectedCourse,
-                    onStartMockClick = {
-                        activeDialog = LearningDialog(
-                            title = "Start adaptive mock?",
-                            message = "This will open the mock test flow. The recommended mock is weighted toward ${selectedCourse.title}, with strict timing and a review screen after submission.",
-                            confirmText = "Start Mock",
-                            dismissText = "Not Now",
-                            onConfirm = onStartMockClick
-                        )
-                    },
-                    onReviewClick = {
                         showInfo(
-                            title = "Mock review",
-                            message = "Mock review shows score, accuracy, unanswered questions, negative marking risk, and the exact lessons you should repeat next."
+                            title = "Search Materials",
+                            message = "Search across all books, constitution chapters, rivers databases, and saved mock test solutions."
                         )
                     }
                 )
+            }
+
+            // Tabs Selector: All, Subjects, Bookmarks
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(SurfaceWarm)
+                    .border(1.dp, BorderLight, RoundedCornerShape(16.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val tabLabels = listOf("All", "Subjects", "Bookmarks")
+                tabLabels.forEachIndexed { index, label ->
+                    val isSelected = selectedTab == index
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSelected) SurfaceLight else Color.Transparent)
+                            .clickable { selectedTab = index }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) BrandViolet else TextSecondaryLight,
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Main Tab Content
+            when (selectedTab) {
+                0 -> {
+                    // ALL tab: list courses
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().weight(1f),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item {
+                            NeuriseSectionHeader(
+                                title = "Active Syllabus Courses",
+                                actionText = "Start Practice",
+                                onActionClick = onStartMockClick
+                            )
+                        }
+                        items(courses) { course ->
+                            CourseCatalogCard(
+                                course = course,
+                                selected = false,
+                                onClick = { onOpenCourseDetail(course.id) },
+                                onStartLearning = { onStartLearning(course.id) }
+                            )
+                        }
+                    }
+                }
+                1 -> {
+                    // SUBJECTS tab
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().weight(1f),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        item {
+                            Text(
+                                text = "Syllabus breakdown by subject",
+                                color = TextSecondaryLight,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                        }
+                        items(subjectsList) { subject ->
+                            SubjectMaterialRow(
+                                subject = subject,
+                                onDownloadClick = {
+                                    showInfo(
+                                        title = "Offline Storage",
+                                        message = "Downloading ${subject.name} offline pack containing ${subject.chapterCount} chapters & flashcards."
+                                    )
+                                },
+                                onClick = {
+                                    onOpenCourseDetail(subject.courseId)
+                                }
+                            )
+                        }
+                    }
+                }
+                2 -> {
+                    // BOOKMARKS tab (Screen 15)
+                    Column(modifier = Modifier.fillMaxSize().weight(1f)) {
+                        // Bookmark filter row
+                        val filters = listOf("All", "Questions", "Notes", "Materials")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            filters.forEach { filter ->
+                                val isSelected = bookmarkFilter == filter
+                                NeurisePill(
+                                    label = filter,
+                                    icon = null,
+                                    selected = isSelected,
+                                    tint = BrandViolet,
+                                    background = BrandVioletLight,
+                                    onClick = { bookmarkFilter = filter }
+                                )
+                            }
+                        }
+
+                        // Filtered bookmarks list
+                        val filteredList = bookmarksList.filter {
+                            bookmarkFilter == "All" || it.category == bookmarkFilter
+                        }
+
+                        if (filteredList.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize().weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No saved elements in this category.",
+                                    color = TextSecondaryLight,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize().weight(1f),
+                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                items(filteredList) { item ->
+                                    BookmarkCard(
+                                        item = item,
+                                        onRemoveClick = {
+                                            bookmarksList = bookmarksList.filter { it.id != item.id }
+                                            showInfo(
+                                                title = "Bookmark removed",
+                                                message = "Removed '${item.title}' from your saved collection."
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
         activeDialog?.let { dialog ->
             LearningAlert(dialog = dialog, onDismiss = { activeDialog = null })
+        }
+    }
+}
+
+// Data class to support Redesigned CourseScreen
+private data class SubjectMaterialItem(
+    val name: String,
+    val chapterCount: Int,
+    val icon: ImageVector,
+    val courseId: String,
+    val color: Color
+)
+
+private data class BookmarkItem(
+    val id: String,
+    val title: String,
+    val category: String, // Questions, Notes, Materials
+    val tag: String,
+    val content: String
+)
+
+@Composable
+private fun SubjectMaterialRow(
+    subject: SubjectMaterialItem,
+    onDownloadClick: () -> Unit,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(SurfaceLight)
+            .border(1.dp, BorderLight, RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(subject.color.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = subject.icon,
+                    contentDescription = null,
+                    tint = subject.color,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Column {
+                Text(
+                    text = subject.name,
+                    color = TextPrimaryLight,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "${subject.chapterCount} Chapters",
+                    color = TextSecondaryLight,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        // Blue Download Action Indicator
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(BrandBlue.copy(alpha = 0.12f))
+                .clickable { onDownloadClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Download,
+                contentDescription = "Download offline materials",
+                tint = BrandBlue,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun BookmarkCard(
+    item: BookmarkItem,
+    onRemoveClick: () -> Unit
+) {
+    NeuriseCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 18,
+        contentPadding = PaddingValues(14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                val categoryColor = when (item.category) {
+                    "Questions" -> BrandViolet
+                    "Notes" -> BrandTeal
+                    else -> BrandOrange
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(categoryColor)
+                )
+
+                Column {
+                    Text(
+                        text = item.title,
+                        color = TextPrimaryLight,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = item.content,
+                        color = TextSecondaryLight,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(categoryColor.copy(alpha = 0.12f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = item.category,
+                                color = categoryColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SurfaceWarm)
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = item.tag,
+                                color = TextSecondaryLight,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            Icon(
+                imageVector = Icons.Default.Bookmark,
+                contentDescription = "Remove Bookmark",
+                tint = BrandViolet,
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { onRemoveClick() }
+            )
         }
     }
 }
@@ -1824,7 +2034,7 @@ private fun colorFromHex(value: String, fallback: Color): Color {
 
 private fun iconFromKey(key: String, fallback: ImageVector): ImageVector {
     return when (key.lowercase()) {
-        "public", "gk" -> Icons.Default.Public
+        "public", "gk" -> Icons.Default.School
         "psychology", "iq" -> Icons.Default.Psychology
         "gavel", "law" -> Icons.Default.Gavel
         "business", "business_center", "admin" -> Icons.Default.BusinessCenter
@@ -1925,7 +2135,7 @@ private val courseCatalog = listOf(
         level = "Officer",
         progress = 64,
         aiScore = 73,
-        icon = Icons.Default.Public,
+        icon = Icons.Default.School,
         color = BrandViolet,
         background = BrandVioletLight,
         modules = listOf(

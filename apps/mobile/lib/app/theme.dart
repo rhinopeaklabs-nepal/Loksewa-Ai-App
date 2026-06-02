@@ -7,13 +7,13 @@ import 'package:google_fonts/google_fonts.dart';
 /// Inspired by Duolingo's playfulness + Apple's polish
 class AppTheme {
   // ===== Brand Colors =====
-  static const Color primary = Color(0xFF1F8852); // Loksewa Green
-  static const Color primaryLight = Color(0xFF34A86B);
-  static const Color primaryDark = Color(0xFF13472F);
-  static const Color primaryContainer = Color(0xFFD9F0E2);
+  static const Color primary = Color(0xFF146BFF);
+  static const Color primaryLight = Color(0xFF12D8FF);
+  static const Color primaryDark = Color(0xFF063A9E);
+  static const Color primaryContainer = Color(0x26146BFF);
 
-  static const Color secondary = Color(0xFFF37B14); // Warm orange accent
-  static const Color secondaryLight = Color(0xFFFFA94D);
+  static const Color secondary = Color(0xFFFF8A00);
+  static const Color secondaryLight = Color(0xFFFFC400);
   static const Color secondaryContainer = Color(0xFFFFE8D1);
 
   static const Color tertiary = Color(0xFF6366F1); // Indigo accent
@@ -27,31 +27,31 @@ class AppTheme {
 
   // ===== Neutral Colors =====
   static const Color white = Colors.white;
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceVariant = Color(0xFFF1F5F9);
-  static const Color outline = Color(0xFFE2E8F0);
-  static const Color textPrimary = Color(0xFF0F172A);
-  static const Color textSecondary = Color(0xFF64748B);
-  static const Color textTertiary = Color(0xFF94A3B8);
+  static const Color background = Color(0xFF020713);
+  static const Color surface = Color(0xFF071426);
+  static const Color surfaceVariant = Color(0xFF0B1A2D);
+  static const Color outline = Color(0x337896BE);
+  static const Color textPrimary = Color(0xFFF7FAFF);
+  static const Color textSecondary = Color(0xFFA7B4C8);
+  static const Color textTertiary = Color(0xFF6F7D91);
 
   // ===== Dark Theme Colors =====
-  static const Color darkBackground = Color(0xFF0F172A);
-  static const Color darkSurface = Color(0xFF1E293B);
-  static const Color darkSurfaceVariant = Color(0xFF334155);
-  static const Color darkOutline = Color(0xFF334155);
-  static const Color darkTextPrimary = Color(0xFFF8FAFC);
-  static const Color darkTextSecondary = Color(0xFFCBD5E1);
+  static const Color darkBackground = Color(0xFF020713);
+  static const Color darkSurface = Color(0xFF071426);
+  static const Color darkSurfaceVariant = Color(0xFF0B1A2D);
+  static const Color darkOutline = Color(0x337896BE);
+  static const Color darkTextPrimary = Color(0xFFF7FAFF);
+  static const Color darkTextSecondary = Color(0xFFA7B4C8);
 
   // ===== Gradients =====
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF1F8852), Color(0xFF34A86B)],
+    colors: [Color(0xFF146BFF), Color(0xFF12D8FF), Color(0xFFFF8A00), Color(0xFFFFC400)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient secondaryGradient = LinearGradient(
-    colors: [Color(0xFFF37B14), Color(0xFFFFA94D)],
+    colors: [Color(0xFFFF8A00), Color(0xFFFFC400)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -63,7 +63,7 @@ class AppTheme {
   );
 
   static const LinearGradient blueGradient = LinearGradient(
-    colors: [Color(0xFF3B82F6), Color(0xFF06B6D4)],
+    colors: [Color(0xFF146BFF), Color(0xFF12D8FF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -75,7 +75,7 @@ class AppTheme {
   );
 
   static const LinearGradient heroGradient = LinearGradient(
-    colors: [Color(0xFF1F8852), Color(0xFF34A86B), Color(0xFF6366F1)],
+    colors: [Color(0xFF020713), Color(0xFF146BFF), Color(0xFFFF8A00)],
     stops: [0.0, 0.5, 1.0],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
