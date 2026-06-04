@@ -1,6 +1,6 @@
 // AI Service — Tutor controller
+import { randomUUID } from "node:crypto";
 import { query, getConfig, logger, publishEvent, AISafetyError } from "@loksewa/shared-utils";
-import { v4 as uuidv4 } from "uuid";
 import { chatCompletion, streamChatCompletion } from "../llm/client.js";
 import { buildContext, checkSafety } from "../rag/contextBuilder.js";
 import { getPrompt, renderPrompt } from "../prompts/templates.js";
@@ -51,8 +51,8 @@ export async function handleChatTurn(
     user_memories: memories,
     user_skill_summary: await getSkillSummary(userId),
     query: request.message,
-    language: request.language ?? "en",
-    mode: request.context?.mode,
+    language: request.language === "ne" ? "ne" : "en",
+    mode: request.context?.mode === "mistake_review" ? "explain_answer" : request.context?.mode,
     recent_messages: recentMessages,
   });
 
@@ -78,7 +78,7 @@ export async function handleChatTurn(
   }
 
   // 8. Persist
-  const turnId = uuidv4();
+  const turnId = randomUUID();
   await saveMessages(conversationId, userId, request.message, finalResponse, ctx.citations, source, {
     model: completion.model,
     prompt_tokens: completion.prompt_tokens,
@@ -92,7 +92,7 @@ export async function handleChatTurn(
 
   // 9. Publish event
   await publishEvent("ai.conversation.created", {
-    event_id: uuidv4(),
+    event_id: randomUUID(),
     event_type: "ai.conversation.created",
     event_version: 1,
     occurred_at: new Date().toISOString(),
@@ -130,7 +130,7 @@ async function handleRefusal(
   const message = reason === "unsafe_content" ? getPrompt("REFUSAL_UNSAFE", language) : getPrompt("REFUSAL_OFF_TOPIC", language);
 
   const conversationId = request.conversation_id ?? (await createConversation(userId, request));
-  const turnId = uuidv4();
+  const turnId = randomUUID();
 
   await saveMessages(conversationId, userId, request.message, message, [], "refused", {
     model: "refused",
@@ -163,7 +163,7 @@ async function createConversation(userId: string, request: ChatRequest): Promise
   const result = await query<{ id: string }>(
     `INSERT INTO ai_conversations (user_id, session_id, mode, topic)
      VALUES ($1, $2, $3, $4) RETURNING id`,
-    [userId, uuidv4(), request.context?.mode ?? "free_chat", request.context?.topic ?? null]
+    [userId, randomUUID(), request.context?.mode ?? "free_chat", request.context?.topic ?? null]
   );
   return result.rows[0]!.id;
 }

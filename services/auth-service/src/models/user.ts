@@ -2,6 +2,13 @@
 import { query, withTransaction } from "@loksewa/shared-utils";
 import type { User, UserRole, Language, ExamTarget } from "@loksewa/shared-types";
 
+export type AuthUser = User & {
+  password_hash?: string | null;
+  is_active: boolean;
+  last_login_at?: string | Date | null;
+  deleted_at?: string | Date | null;
+};
+
 export interface CreateUserInput {
   email?: string;
   phone?: string;
@@ -14,24 +21,24 @@ export interface CreateUserInput {
   phone_verified?: boolean;
 }
 
-export async function findUserById(id: string): Promise<User | null> {
-  const result = await query<User>(
+export async function findUserById(id: string): Promise<AuthUser | null> {
+  const result = await query<AuthUser>(
     `SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL`,
     [id]
   );
   return result.rows[0] ?? null;
 }
 
-export async function findUserByEmail(email: string): Promise<User | null> {
-  const result = await query<User>(
+export async function findUserByEmail(email: string): Promise<AuthUser | null> {
+  const result = await query<AuthUser>(
     `SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL`,
     [email.toLowerCase()]
   );
   return result.rows[0] ?? null;
 }
 
-export async function findUserByPhone(phone: string): Promise<User | null> {
-  const result = await query<User>(
+export async function findUserByPhone(phone: string): Promise<AuthUser | null> {
+  const result = await query<AuthUser>(
     `SELECT * FROM users WHERE phone = $1 AND deleted_at IS NULL`,
     [phone]
   );
@@ -41,8 +48,8 @@ export async function findUserByPhone(phone: string): Promise<User | null> {
 export async function findUserByOAuth(
   provider: string,
   providerUserId: string
-): Promise<User | null> {
-  const result = await query<User>(
+): Promise<AuthUser | null> {
+  const result = await query<AuthUser>(
     `SELECT u.* FROM users u
      JOIN oauth_accounts oa ON oa.user_id = u.id
      WHERE oa.provider = $1 AND oa.provider_user_id = $2 AND u.deleted_at IS NULL`,
@@ -51,8 +58,8 @@ export async function findUserByOAuth(
   return result.rows[0] ?? null;
 }
 
-export async function createUser(input: CreateUserInput): Promise<User> {
-  const result = await query<User>(
+export async function createUser(input: CreateUserInput): Promise<AuthUser> {
+  const result = await query<AuthUser>(
     `INSERT INTO users (
        email, phone, password_hash, full_name,
        preferred_language, target_exam, role,
@@ -78,7 +85,7 @@ export async function createUser(input: CreateUserInput): Promise<User> {
 export async function updateUser(
   id: string,
   patch: Partial<CreateUserInput> & { last_login_at?: Date }
-): Promise<User> {
+): Promise<AuthUser> {
   const fields: string[] = [];
   const values: unknown[] = [];
   let i = 1;
@@ -96,7 +103,7 @@ export async function updateUser(
   }
 
   values.push(id);
-  const result = await query<User>(
+  const result = await query<AuthUser>(
     `UPDATE users SET ${fields.join(", ")} WHERE id = $${i} AND deleted_at IS NULL RETURNING *`,
     values
   );

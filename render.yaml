@@ -1,0 +1,54 @@
+services:
+  - type: web
+    name: loksewa-ai-backend
+    runtime: docker
+    plan: free
+    numInstances: 1
+    maxShutdownDelaySeconds: 60
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    buildFilter:
+      paths:
+        - backend/**
+        - admin-dashboard/**
+        - render.yaml
+        - .dockerignore
+      ignoredPaths:
+        - docs/**
+        - services/**
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOKSEWA_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "8000"
+      - key: NODE_BACKEND_DB_PATH
+        value: /data/node-backend-db.json
+      - key: ADMIN_DIST_PATH
+        value: /app/admin-dashboard/dist
+      - key: LOKSEWA_TRUST_PROXY
+        value: "true"
+      - key: LOKSEWA_ENFORCE_HTTPS
+        value: "true"
+      - key: LOKSEWA_ENABLE_ARCHITECTURE_ROUTES
+        value: "false"
+      - key: LOKSEWA_SCRAPER_ENABLED
+        value: "false"
+      - key: LOKSEWA_ADMIN_TOKEN
+        generateValue: true
+      - key: LOKSEWA_SESSION_SECRET
+        generateValue: true
+      - key: LOKSEWA_DELTA_SIGNING_SECRET
+        generateValue: true
+      - key: LOKSEWA_BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: LOKSEWA_CORS_ORIGINS
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false

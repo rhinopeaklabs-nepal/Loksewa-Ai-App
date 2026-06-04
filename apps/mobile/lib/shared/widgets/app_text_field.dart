@@ -1,5 +1,6 @@
-// Reusable App Text Field
+// Reusable App Text Field using GetWidget
 import 'package:flutter/material.dart';
+import 'package:getwidget/getwidget.dart';
 
 class AppTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -64,6 +65,9 @@ class AppTextField extends StatelessWidget {
                 ? Icon(prefixIcon, color: Theme.of(context).colorScheme.onSurfaceVariant)
                 : null,
             suffixIcon: suffixIcon,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
       ],

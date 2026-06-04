@@ -1,4 +1,5 @@
 packages:
   - "services/*"
-  - "apps/*"
+  - "apps/admin-dashboard"
+  - "apps/web"
   - "packages/*"

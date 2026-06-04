@@ -3,7 +3,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import { z } from "zod";
-import { logger, loadConfig, checkHealth, closePool, authenticate, AppError, query, getRedis, publishEvent } from "@loksewa/shared-utils";
+import { logger, loadConfig, checkHealth, closePool, authenticate, AppError, query } from "@loksewa/shared-utils";
 
 loadConfig("notification-service");
 const PORT = Number(process.env.SERVICE_PORT) || 3010;
@@ -83,7 +83,7 @@ async function sendStreakWarnings() {
   for (const row of result.rows) {
     await query(
       `INSERT INTO notifications (user_id, type, title, body, body_ne, channels, priority)
-       VALUES ($1, 'streak_warning', 'Streak at risk!', ?, ?, '{push,in_app}', 'high')`,
+       VALUES ($1, 'streak_warning', 'Streak at risk!', $2, $3, '{push,in_app}', 'high')`,
       [row.user_id,
        `Your ${row.current_streak}-day streak ends in hours. Practice now!`,
        `तपाईंको ${row.current_streak} दिनको स्ट्रिक जोखिममा छ। अहिले अभ्यास गर्नुहोस्!`]

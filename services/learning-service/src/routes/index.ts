@@ -27,7 +27,7 @@ function err(reply: any, err: unknown) {
   return reply.status(500).send({ success: false, error: { code: "INTERNAL_ERROR", message: "Internal error" } });
 }
 
-export async function registerRoutes(app: FastifyInstance) {
+export async function registerRoutes(app: FastifyInstance<any, any, any, any>) {
   // Today's mission
   app.get("/v1/missions/today", async (req, reply) => {
     try {

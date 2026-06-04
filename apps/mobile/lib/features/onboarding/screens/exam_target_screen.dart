@@ -1,6 +1,6 @@
-// Exam Target Screen — choose which Loksewa exam to prepare for
+// Exam Target Screen — choose which Loksewa exam to prepare for using GetWidget
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router.dart';
@@ -14,49 +14,35 @@ class ExamTargetScreen extends StatefulWidget {
 }
 
 class _ExamTargetScreenState extends State<ExamTargetScreen> {
-  String? _selected;
+  String? _selected = 'kharidar';
 
-  final _exams = [
+  final List<Map<String, dynamic>> _exams = [
+    {
+      'id': 'section_officer',
+      'name': 'Section Officer',
+      'subtitle': 'Gazetted 3rd class officer prep',
+      'icon': Icons.business_center_rounded,
+      'color': Colors.purple,
+    },
     {
       'id': 'nayan',
       'name': 'Nayab Subba',
-      'subtitle': 'Non-gazetted 2nd class',
-      'icon': Icons.account_balance,
+      'subtitle': 'Non-gazetted 2nd class officer prep',
+      'icon': Icons.account_balance_rounded,
       'color': AppTheme.primary,
     },
     {
       'id': 'kharidar',
       'name': 'Kharidar',
-      'subtitle': 'Non-gazetted 3rd class',
-      'icon': Icons.assignment_ind,
+      'subtitle': 'Non-gazetted 3rd class assistant prep',
+      'icon': Icons.assignment_ind_rounded,
       'color': Colors.blue,
     },
     {
-      'id': 'section_officer',
-      'name': 'Section Officer',
-      'subtitle': 'Gazetted 3rd class',
-      'icon': Icons.business_center,
-      'color': Colors.purple,
-    },
-    {
-      'id': 'na_su',
-      'name': 'Nayab Subba (Sahayak)',
-      'subtitle': 'Assistant level',
-      'icon': Icons.support_agent,
-      'color': Colors.orange,
-    },
-    {
-      'id': 'adarsa',
-      'name': 'Adarsa Baal',
-      'subtitle': 'ASO preparation',
-      'icon': Icons.shield,
-      'color': Colors.red,
-    },
-    {
-      'id': 'loksewa_other',
-      'name': 'Other Loksewa',
-      'subtitle': 'Custom preparation',
-      'icon': Icons.more_horiz,
+      'id': 'teacher_service',
+      'name': 'Teacher Service',
+      'subtitle': 'TSC teaching license and post prep',
+      'icon': Icons.school_rounded,
       'color': Colors.teal,
     },
   ];
@@ -70,6 +56,7 @@ class _ExamTargetScreenState extends State<ExamTargetScreen> {
           onPressed: () => context.pop(),
         ),
         title: const Text('Exam Target'),
+        centerTitle: true,
       ),
       body: SafeArea(
         child: Padding(
@@ -86,7 +73,7 @@ class _ExamTargetScreenState extends State<ExamTargetScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                "We'll build your study plan around this.",
+                "We'll customize your diagnostic quiz and prep materials accordingly.",
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -95,110 +82,85 @@ class _ExamTargetScreenState extends State<ExamTargetScreen> {
               Expanded(
                 child: ListView.separated(
                   itemCount: _exams.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, i) {
                     final exam = _exams[i];
                     final isSelected = _selected == exam['id'];
-                    return InkWell(
-                      onTap: () => setState(() => _selected = exam['id'] as String),
-                      borderRadius: BorderRadius.circular(20),
-                      child: AnimatedContainer(
-                        duration: AppTheme.normal,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? (exam['color'] as Color).withOpacity(0.08)
-                              : Theme.of(context).colorScheme.surface,
-                          border: Border.all(
-                            color: isSelected
-                                ? exam['color'] as Color
-                                : Theme.of(context).colorScheme.outline,
-                            width: isSelected ? 2 : 1,
+                    final color = exam['color'] as Color;
+                    return GFCard(
+                      margin: EdgeInsets.zero,
+                      padding: const EdgeInsets.all(4),
+                      borderRadius: BorderRadius.circular(16),
+                      color: isSelected
+                          ? color.withOpacity(0.08)
+                          : Theme.of(context).cardColor,
+                      border: Border.all(
+                        color: isSelected
+                            ? color
+                            : Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                        width: isSelected ? 2.0 : 1.0,
+                      ),
+                      content: InkWell(
+                        onTap: () => setState(() => _selected = exam['id'] as String),
+                        borderRadius: BorderRadius.circular(16),
+                        child: GFListTile(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          avatar: GFAvatar(
+                            backgroundColor: color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Icon(
+                              exam['icon'] as IconData,
+                              color: color,
+                              size: 24,
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: (exam['color'] as Color).withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Icon(
-                                exam['icon'] as IconData,
-                                color: exam['color'] as Color,
-                                size: 26,
-                              ),
+                          title: Text(
+                            exam['name'] as String,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    exam['name'] as String,
-                                    style: Theme.of(context).textTheme.titleMedium,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    exam['subtitle'] as String,
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                  ),
-                                ],
-                              ),
+                          ),
+                          subTitle: Text(
+                            exam['subtitle'] as String,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
-                            AnimatedContainer(
-                              duration: AppTheme.normal,
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isSelected
-                                    ? exam['color'] as Color
-                                    : Colors.transparent,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? exam['color'] as Color
-                                      : Theme.of(context).colorScheme.outline,
-                                  width: 2,
-                                ),
-                              ),
-                              child: isSelected
-                                  ? const Icon(Icons.check, size: 16, color: Colors.white)
-                                  : null,
-                            ),
-                          ],
+                          ),
+                          icon: GFRadio<String>(
+                            value: exam['id'] as String,
+                            groupValue: _selected ?? '',
+                            onChanged: (value) {
+                              setState(() {
+                                _selected = value;
+                              });
+                            },
+                            type: GFRadioType.basic,
+                            size: GFSize.SMALL,
+                            activeBorderColor: color,
+                          ),
                         ),
                       ),
-                    ).animate(delay: (60 * i).ms).fadeIn(duration: 400.ms).slideX(begin: 0.1);
+                    );
                   },
                 ),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  onPressed: _selected == null
-                      ? null
-                      : () => context.push(AppRoutes.baselineQuiz),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward_rounded),
-                    ],
-                  ),
+              const SizedBox(height: 16),
+              GFButton(
+                text: 'Continue to Baseline Quiz',
+                icon: const Icon(
+                  Icons.arrow_forward_rounded,
+                  color: Colors.white,
+                  size: 18,
                 ),
+                position: GFPosition.end,
+                onPressed: _selected == null
+                    ? null
+                    : () => context.push(AppRoutes.baselineQuiz),
+                shape: GFButtonShape.pills,
+                size: GFSize.LARGE,
+                color: AppTheme.primary,
+                blockButton: true,
               ),
               const SizedBox(height: 12),
             ],

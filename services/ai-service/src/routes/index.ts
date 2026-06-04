@@ -47,7 +47,7 @@ function err(reply: any, err: unknown) {
   return reply.status(500).send({ success: false, error: { code: "INTERNAL_ERROR" } });
 }
 
-export async function registerRoutes(app: FastifyInstance) {
+export async function registerRoutes(app: FastifyInstance<any, any, any, any>) {
   // Main chat
   app.post("/v1/tutor/chat", async (req, reply) => {
     try {

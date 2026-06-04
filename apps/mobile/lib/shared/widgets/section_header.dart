@@ -1,5 +1,6 @@
-// Section Header Widget
+// Section Header Widget using GFTypography
 import 'package:flutter/material.dart';
+import 'package:getwidget/getwidget.dart';
 
 class SectionHeader extends StatelessWidget {
   final String title;
@@ -24,11 +25,11 @@ class SectionHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+              GFTypography(
+                text: title,
+                type: GFTypographyType.typo4,
+                showDivider: false,
+                fontWeight: FontWeight.w800,
               ),
               if (subtitle != null) ...[
                 const SizedBox(height: 2),
@@ -44,6 +45,7 @@ class SectionHeader extends StatelessWidget {
           TextButton(
             onPressed: onAction,
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(actionText!),
                 const SizedBox(width: 2),

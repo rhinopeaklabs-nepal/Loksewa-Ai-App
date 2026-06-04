@@ -1,7 +1,6 @@
 // Knowledge Service — Question management + RAG ingestion
 import { query, withTransaction } from "@loksewa/shared-utils";
 import type { Question } from "@loksewa/shared-types";
-import { getEmbedding } from "./embeddings.js";
 
 // ============ Question Operations ============
 export async function getQuestionById(id: string): Promise<Question | null> {

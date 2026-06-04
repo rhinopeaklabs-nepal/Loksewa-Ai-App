@@ -5,13 +5,23 @@ import { authenticate, AppError } from "@loksewa/shared-utils";
 import * as authService from "../services/auth.js";
 import type { AuthTokens } from "@loksewa/shared-types";
 
+const ExamTargetSchema = z.enum([
+  "section_officer",
+  "nayab_subba",
+  "kharidar",
+  "engineering_license",
+  "see",
+  "plus_two",
+  "bachelor",
+]);
+
 const RegisterSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().regex(/^\+?[0-9]{7,15}$/).optional(),
   password: z.string().min(8).optional(),
   full_name: z.string().min(1).max(200).optional(),
   preferred_language: z.enum(["ne", "en", "mai", "new", "tdg"]).optional(),
-  target_exam: z.string().optional(),
+  target_exam: ExamTargetSchema.optional(),
   signup_source: z.string().optional(),
 });
 
@@ -48,7 +58,7 @@ const RefreshSchema = z.object({
 const UpdateProfileSchema = z.object({
   full_name: z.string().min(1).max(200).optional(),
   preferred_language: z.enum(["ne", "en", "mai", "new", "tdg"]).optional(),
-  target_exam: z.string().optional(),
+  target_exam: ExamTargetSchema.optional(),
 });
 
 const ChangePasswordSchema = z.object({
@@ -92,7 +102,7 @@ function handleError(reply: FastifyReply, err: unknown) {
   });
 }
 
-export async function registerRoutes(app: FastifyInstance) {
+export async function registerRoutes(app: FastifyInstance<any, any, any, any>) {
   // ============ Public Auth ============
   app.post("/v1/auth/register", async (req, reply) => {
     try {

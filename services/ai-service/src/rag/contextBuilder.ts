@@ -1,5 +1,5 @@
 // AI Service — Context Builder (assembles the prompt for the LLM)
-import type { ChatMessage, UserProfile, Memory } from "@loksewa/shared-types";
+import type { ChatMessage, ChatRequest, Language, UserProfile, Memory } from "@loksewa/shared-types";
 import { renderPrompt, getPrompt } from "../prompts/templates.js";
 import { retrieveKnowledge, retrieveUserMemories, buildContextBlock, buildCitations, type KnowledgeChunk } from "../rag/retriever.js";
 import { logger } from "@loksewa/shared-utils";
@@ -10,8 +10,8 @@ export interface ContextInput {
   user_memories?: Memory[];
   user_skill_summary?: { topic: string; score: number }[];
   query: string;
-  language: "ne" | "en";
-  mode?: "free_chat" | "explain_answer" | "explain_concept" | "generate_quiz" | "study_plan";
+  language: Language;
+  mode?: NonNullable<ChatRequest["context"]>["mode"];
   retrieved_context?: string;
   recent_messages?: ChatMessage[];
 }

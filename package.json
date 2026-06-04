@@ -5,13 +5,25 @@
   "description": "Loksewa AI — AI Learning Operating System for Nepal. Microservices monorepo.",
   "workspaces": [
     "services/*",
-    "apps/*",
+    "apps/admin-dashboard",
+    "apps/web",
     "packages/*"
   ],
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:automation": "node scripts/backend-services-audit.mjs && node scripts/flutter-mobile-check.mjs",
+    "audit:backend-services": "node scripts/backend-services-audit.mjs",
+    "audit:backend-services:static": "node scripts/backend-services-audit.mjs --static-only",
+    "mobile:flutter:check": "node scripts/flutter-mobile-check.mjs",
+    "mobile:flutter:doctor": "cd apps/mobile && flutter doctor",
+    "mobile:flutter:create": "cd apps/mobile && flutter create --platforms=android,ios .",
+    "mobile:flutter:get": "cd apps/mobile && flutter pub get",
+    "mobile:flutter:analyze": "cd apps/mobile && flutter analyze",
+    "mobile:flutter:test": "cd apps/mobile && flutter test",
+    "mobile:flutter:run": "cd apps/mobile && flutter run",
+    "mobile:flutter:build:apk": "cd apps/mobile && flutter build apk --release",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "infra:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
@@ -19,6 +31,8 @@
     "infra:logs": "docker compose -f infrastructure/docker/docker-compose.yml logs -f",
     "db:migrate": "node packages/db-migrator/dist/cli.js up",
     "db:seed": "node packages/db-seeder/dist/cli.js",
+    "render:backend:build": "npm --prefix backend ci --include=dev && npm --prefix backend run build && npm --prefix backend prune --omit=dev",
+    "render:backend:start": "npm --prefix backend run start:prod",
     "services:start": "turbo run dev --parallel",
     "clean": "turbo run clean && rm -rf node_modules"
   },
@@ -30,7 +44,7 @@
     "eslint": "^9.0.0"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=22.0.0 <23.0.0",
     "pnpm": ">=9.0.0"
   },
   "packageManager": "pnpm@9.0.0",

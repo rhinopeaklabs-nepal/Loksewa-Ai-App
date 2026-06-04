@@ -1,8 +1,10 @@
 // Memory Service — Collect, extract, embed, retrieve with semantic understanding
 import { query, withTransaction } from "@loksewa/shared-utils";
 import { v4 as uuidv4 } from "uuid";
-import type { Memory, MemoryType } from "@loksewa/shared-types";
-import { getEmbedding } from "../embeddings.js";
+import type { Memory } from "@loksewa/shared-types";
+import { getEmbedding } from "./embeddings.js";
+
+type MemoryType = Memory["memory_type"];
 
 export interface CreateMemoryInput {
   user_id: string;
@@ -112,7 +114,7 @@ export async function extractMemoriesFromEvent(
             fact: `User struggled with ${p.topic}${p.subtopic ? ` / ${p.subtopic}` : ""}`,
             fact_ne: `उपयोगकर्ता ${p.topic}${p.subtopic ? ` / ${p.subtopic}` : ""} मा सिर्जना गर्छ`,
             category: "weakness",
-            importance: Math.min(5, 3 + Math.floor((1 - p.confidence ?? 0.5) * 2)), // Higher importance for low confidence
+            importance: Math.min(5, 3 + Math.floor((1 - (p.confidence ?? 0.5)) * 2)), // Higher importance for low confidence
             confidence: p.confidence ?? 0.7,
             source_event_type: event.event_type,
             context: {
@@ -249,7 +251,7 @@ export async function extractMemoriesFromEvent(
         extracted.push(mem);
       }
       
-      # Extract fatigue patterns
+      // Extract fatigue patterns
       if (p.focus_score !== undefined && p.focus_score < 0.4) {
         const mem = await createMemory({
           user_id: userId,
@@ -291,7 +293,7 @@ export async function extractMemoriesFromEvent(
         extracted.push(mem);
       }
       
-      # Extract topic interest from conversation depth
+      // Extract topic interest from conversation depth
       if (p.topic && p.engagement_score > 0.7) {
         const mem = await createMemory({
           user_id: userId,
@@ -373,35 +375,43 @@ export async function searchMemoriesSemantically(
 ): Promise<Memory[]> {
   // In production, this would use actual vector similarity search
   // For now, we'll use text search with importance weighting
-  const embedding = await getEmbedding(queryText);
+  await getEmbedding(queryText);
+
+  const params: unknown[] = [userId];
+  const wheres = ["m.user_id = $1", "m.is_active = true"];
+
+  if (options.memoryTypes && options.memoryTypes.length > 0) {
+    params.push(options.memoryTypes);
+    wheres.push(`m.memory_type = ANY($${params.length}::text[])`);
+  }
+
+  if (options.minConfidence !== undefined) {
+    params.push(options.minConfidence);
+    wheres.push(`m.confidence >= $${params.length}`);
+  }
+
+  params.push(`%${queryText}%`);
+  const textSearchParam = params.length;
+
+  params.push(options.limit ?? 10);
+  const limitParam = params.length;
   
   const result = await query<Memory>(
     `SELECT m.*, 
             (CASE WHEN m.embedding_id IS NOT NULL THEN 0.8 ELSE 0.2 END) as base_score
      FROM user_memories m
-     WHERE m.user_id = $1 
-       AND m.is_active = true
-       ${options.memoryTypes ? `AND m.memory_type = ANY($${options.memoryTypes ? 2 : 1}::text[])` : ""}
-       ${options.minConfidence ? `AND m.confidence >= $${options.memoryTypes ? (options.memoryTypes.length + 2) : 2}` : ""}
+     WHERE ${wheres.join(" AND ")}
      ORDER BY 
        CASE 
          WHEN m.embedding_id IS NOT NULL THEN 
-           # Placeholder for actual vector similarity - in production use proper vector search
            0.9 
          ELSE 
-           # Fallback to text matching
-           CASE WHEN m.fact ILIKE $${options.memoryTypes ? (options.memoryTypes.length + (options.minConfidence ? 3 : 2)) : (options.minConfidence ? 2 : 1)} THEN 0.7 ELSE 0.3 END
+           CASE WHEN m.fact ILIKE $${textSearchParam} THEN 0.7 ELSE 0.3 END
        END DESC,
        m.importance DESC,
        m.confidence DESC
-     LIMIT $${options.memoryTypes ? (options.memoryTypes.length + (options.minConfidence ? 3 : 2) + (options.limit ? 1 : 0)) : (options.minConfidence ? 2 : 1) + (options.limit ? 1 : 0)}`,
-    [
-      userId,
-      ...(options.memoryTypes ?? []),
-      ...(options.minConfidence ? [options.minConfidence] : []),
-      ...(options.minConfidence ? [`%${queryText}%`] : []),
-      options.limit ?? 10
-    ]
+     LIMIT $${limitParam}`,
+    params
   );
   
   return result.rows;

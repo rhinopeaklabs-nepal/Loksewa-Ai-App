@@ -1,6 +1,5 @@
 // Exam Service — Mock exam engine
-import { query, withTransaction, getRedis } from "@loksewa/shared-utils";
-import { v4 as uuidv4 } from "uuid";
+import { query, withTransaction } from "@loksewa/shared-utils";
 import type { MockExam, MockExamAttempt, Question, ExamStartResponse } from "@loksewa/shared-types";
 
 export async function getMockExam(id: string): Promise<MockExam | null> {
@@ -125,8 +124,8 @@ export async function submitMockExam(attemptId: string, userId: string): Promise
     const topicScores: Record<string, { correct: number; total: number }> = {};
 
     for (const ans of answers.rows) {
-      const correct = correctMap.get(ans.question_id);
-      if (!correct) continue;
+      const correctAnswer = correctMap.get(ans.question_id);
+      if (!correctAnswer) continue;
 
       const isAnswered = ans.selected_option !== null;
       if (!isAnswered) {
@@ -134,7 +133,7 @@ export async function submitMockExam(attemptId: string, userId: string): Promise
         continue;
       }
 
-      const isCorrect = ans.selected_option === correct.correct_answer;
+      const isCorrect = ans.selected_option === correctAnswer.correct_answer;
       if (isCorrect) correct++;
       else wrong++;
 
@@ -142,7 +141,7 @@ export async function submitMockExam(attemptId: string, userId: string): Promise
       await client.query(
         `UPDATE exam_attempt_answers SET is_correct = $1, correct_answer = $2
          WHERE attempt_id = $3 AND question_id = $4`,
-        [isCorrect, correct.correct_answer, attemptId, ans.question_id]
+        [isCorrect, correctAnswer.correct_answer, attemptId, ans.question_id]
       );
     }
 
@@ -179,8 +178,18 @@ export async function submitMockExam(attemptId: string, userId: string): Promise
   });
 }
 
+type MockExamQuestionSelection = {
+  topics?: string[];
+  difficulty_dist?: Record<string, number>;
+  randomize?: boolean;
+};
+
+type MockExamWithSelection = MockExam & {
+  question_selection?: MockExamQuestionSelection;
+};
+
 async function selectQuestionsForExam(exam: MockExam): Promise<Question[]> {
-  const selection = exam.question_selection as { topics?: string[]; difficulty_dist?: Record<string, number>; randomize?: boolean };
+  const selection = (exam as MockExamWithSelection).question_selection ?? {};
   // Call knowledge service or query directly
   const params: unknown[] = [];
   const wheres: string[] = ["is_published = true", "verified = true"];

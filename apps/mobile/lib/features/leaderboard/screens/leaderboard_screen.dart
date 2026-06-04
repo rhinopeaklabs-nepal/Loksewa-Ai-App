@@ -1,16 +1,18 @@
 // Leaderboard Screen
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/theme.dart';
 import '../../../shared/widgets/section_header.dart';
 
-class LeaderboardScreen extends StatelessWidget {
+class LeaderboardScreen extends ConsumerWidget {
   const LeaderboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -148,27 +150,15 @@ class LeaderboardScreen extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color,
-            border: Border.all(color: Colors.white, width: 3),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.4),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
+        GFAvatar(
+          size: GFSize.LARGE,
+          backgroundColor: color,
           child: Center(
             child: Text(
               p['avatar'] as String,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -221,14 +211,9 @@ class LeaderboardScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: const Center(
+          const GFAvatar(
+            backgroundColor: Colors.white,
+            child: Center(
               child: Text('R', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w800, fontSize: 18)),
             ),
           ),
@@ -249,19 +234,14 @@ class LeaderboardScreen extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Text(
-              '2,950 XP',
-              style: TextStyle(
-                color: AppTheme.primary,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
+          GFBadge(
+            text: '2,950 XP',
+            color: GFColors.LIGHT,
+            shape: GFBadgeShape.standard,
+            textStyle: const TextStyle(
+              color: AppTheme.primary,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
             ),
           ),
         ],
@@ -280,71 +260,50 @@ class LeaderboardScreen extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Container(
-            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Theme.of(context).colorScheme.outline),
             ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 36,
-                  child: Text(
-                    '#$rank',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.textSecondary,
+            child: GFListTile(
+              margin: EdgeInsets.zero,
+              padding: const EdgeInsets.all(8),
+              avatar: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 32,
+                    child: Text(
+                      '#$rank',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                   ),
-                ),
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: _colorFromRank(rank),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
+                  GFAvatar(
+                    backgroundColor: _colorFromRank(rank),
                     child: Text(
                       names[i % names.length].substring(0, 1),
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        names[i % names.length],
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        'Level ${10 - (rank ~/ 4)}',
-                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${3000 - (rank * 30)} XP',
-                    style: const TextStyle(
-                      color: AppTheme.secondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
+              title: Text(
+                names[i % names.length],
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subTitle: Text(
+                'Level ${10 - (rank ~/ 4)}',
+                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+              ),
+              icon: GFBadge(
+                text: '${3000 - (rank * 30)} XP',
+                color: GFColors.SECONDARY,
+                shape: GFBadgeShape.standard,
+              ),
             ),
           ),
         ).animate(delay: (40 * i).ms).fadeIn(duration: 300.ms).slideX(begin: 0.1);

@@ -45,8 +45,9 @@ loksewa-ai-app/
 
 ### Prerequisites
 
-- **Node.js** ≥ 20
+- **Node.js** 22
 - **pnpm** ≥ 9 (`npm install -g pnpm`)
+- **Flutter SDK** 3.19+ for the mobile app
 - **Docker** & **Docker Compose**
 - **Python 3.11+** (for AI service)
 - 8GB+ RAM (16GB recommended)
@@ -119,8 +120,11 @@ pnpm --filter @loksewa/admin-dashboard dev
 # Mobile (Flutter)
 cd apps/mobile
 flutter pub get
-flutter run
+flutter create --platforms=android,ios .
+flutter run --dart-define=API_URL=http://10.0.2.2:8000
 ```
+
+The Flutter app is intentionally not part of the PNPM workspace. Use Flutter tooling inside `apps/mobile` for mobile development and release builds.
 
 ---
 

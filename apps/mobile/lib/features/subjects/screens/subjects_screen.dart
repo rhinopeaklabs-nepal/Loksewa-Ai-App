@@ -1,30 +1,34 @@
-// Subjects Screen
+// Subjects Screen with GetWidget & Riverpod
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
+import 'package:percent_indicator/percent_indicator.dart';
 
 import '../../../app/router.dart';
 import '../../../app/theme.dart';
+import '../../../shared/models/subject.dart';
+import '../../../shared/models/learning.dart';
+import '../../../shared/providers/data_providers.dart';
 
-class SubjectsScreen extends StatelessWidget {
+class SubjectsScreen extends ConsumerStatefulWidget {
   const SubjectsScreen({super.key});
 
   @override
+  ConsumerState<SubjectsScreen> createState() => _SubjectsScreenState();
+}
+
+class _SubjectsScreenState extends ConsumerState<SubjectsScreen> {
+  String _searchQuery = '';
+  List<Subject> _filteredSubjects = [];
+  bool _isInitialized = false;
+
+  @override
   Widget build(BuildContext context) {
-    final subjects = [
-      {'id': 'gk', 'name': 'General Knowledge', 'desc': '125 topics • 2,450 Qs', 'icon': Icons.public, 'color': Colors.blue, 'progress': 0.65},
-      {'id': 'math', 'name': 'Mathematics', 'desc': '85 topics • 1,820 Qs', 'icon': Icons.calculate, 'color': Colors.purple, 'progress': 0.45},
-      {'id': 'english', 'name': 'English', 'desc': '64 topics • 1,250 Qs', 'icon': Icons.translate, 'color': Colors.indigo, 'progress': 0.78},
-      {'id': 'nepali', 'name': 'Nepali', 'desc': '92 topics • 1,540 Qs', 'icon': Icons.menu_book, 'color': Colors.red, 'progress': 0.32},
-      {'id': 'science', 'name': 'Science', 'desc': '108 topics • 1,920 Qs', 'icon': Icons.science, 'color': Colors.teal, 'progress': 0.55},
-      {'id': 'reasoning', 'name': 'Reasoning', 'desc': '56 topics • 980 Qs', 'icon': Icons.psychology, 'color': Colors.orange, 'progress': 0.62},
-      {'id': 'constitution', 'name': 'Constitution', 'desc': '42 topics • 720 Qs', 'icon': Icons.gavel, 'color': Colors.brown, 'progress': 0.25},
-      {'id': 'current', 'name': 'Current Affairs', 'desc': 'Updated daily', 'icon': Icons.newspaper, 'color': Colors.amber, 'progress': 0.40},
-      {'id': 'economics', 'name': 'Economics', 'desc': '38 topics • 650 Qs', 'icon': Icons.trending_up, 'color': Colors.green, 'progress': 0.20},
-      {'id': 'management', 'name': 'Management', 'desc': '46 topics • 780 Qs', 'icon': Icons.business_center, 'color': Colors.cyan, 'progress': 0.30},
-      {'id': 'computer', 'name': 'Computer', 'desc': '52 topics • 880 Qs', 'icon': Icons.computer, 'color': Colors.deepPurple, 'progress': 0.15},
-      {'id': 'history', 'name': 'History', 'desc': '78 topics • 1,320 Qs', 'icon': Icons.history_edu, 'color': Colors.deepOrange, 'progress': 0.50},
-    ];
+    final subjectsAsyncValue = ref.watch(modelSubjectsProvider);
+    final progressAsyncValue = ref.watch(modelStudyProgressProvider);
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -34,87 +38,202 @@ class SubjectsScreen extends StatelessWidget {
         title: const Text('Subjects'),
       ),
       body: SafeArea(
-        child: GridView.builder(
-          padding: const EdgeInsets.all(20),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.95,
-          ),
-          itemCount: subjects.length,
-          itemBuilder: (context, i) {
-            final s = subjects[i];
-            return _buildSubjectCard(context, s, i);
-          },
-        ),
-      ),
-    );
-  }
+        child: subjectsAsyncValue.when(
+          data: (subjects) {
+            // Get all topic completions to match subjects and calculate progress
+            final Map<String, double> subjectProgress = {};
+            progressAsyncValue.maybeWhen(
+              data: (progressList) {
+                // Map topicId to completion
+                final topicCompletion = {
+                  for (var p in progressList) p.topicId: p.completionPercentage
+                };
 
-  Widget _buildSubjectCard(BuildContext context, Map<String, dynamic> s, int i) {
-    return InkWell(
-      onTap: () => context.push('${AppRoutes.subjectDetail}?id=${s['id']}'),
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Theme.of(context).colorScheme.outline),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                for (var s in subjects) {
+                  double totalCompletion = 0;
+                  int topicCount = s.topics.length;
+                  if (topicCount > 0) {
+                    for (var t in s.topics) {
+                      totalCompletion += topicCompletion[t.id] ?? 0.0;
+                    }
+                    subjectProgress[s.id] = (totalCompletion / topicCount).clamp(0.0, 100.0) / 100.0;
+                  } else {
+                    subjectProgress[s.id] = 0.0;
+                  }
+                }
+              },
+              orElse: () {
+                // Mock progress if no data is found
+                for (var s in subjects) {
+                  subjectProgress[s.id] = 0.35;
+                }
+              },
+            );
+
+            if (!_isInitialized || _searchQuery.isEmpty) {
+              _filteredSubjects = subjects;
+              _isInitialized = true;
+            }
+
+            return Column(
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: (s['color'] as Color).withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: GFSearchBar(
+                    searchList: subjects,
+                    searchQueryBuilder: (query, list) {
+                      return list
+                          .where((item) =>
+                              item.name.toLowerCase().contains(query.toLowerCase()) ||
+                              (item.nameNp != null &&
+                                  item.nameNp!.contains(query)))
+                          .toList();
+                    },
+                    overlaySearchListItemBuilder: (item) {
+                      return Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(
+                          item.nameNp ?? item.name,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      );
+                    },
+                    onItemSelected: (item) {
+                      context.push('${AppRoutes.subjectDetail}?id=${item.id}');
+                    },
+                    searchBoxInputDecoration: InputDecoration(
+                      hintText: 'Search subjects...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
                   ),
-                  child: Icon(s['icon'] as IconData, color: s['color'] as Color, size: 22),
                 ),
-                Text(
-                  '${(s['progress'] as double * 100).toInt()}%',
-                  style: TextStyle(
-                    color: s['color'] as Color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                Expanded(
+                  child: _filteredSubjects.isEmpty
+                      ? const Center(child: Text('No subjects found.'))
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(16),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            childAspectRatio: 0.85,
+                          ),
+                          itemCount: _filteredSubjects.length,
+                          itemBuilder: (context, i) {
+                            final s = _filteredSubjects[i];
+                            final progress = subjectProgress[s.id] ?? 0.0;
+                            final colorValue = int.tryParse(s.color ?? '') ?? Colors.teal.value;
+                            final cardColor = Color(colorValue);
+
+                            return InkWell(
+                              onTap: () =>
+                                  context.push('${AppRoutes.subjectDetail}?id=${s.id}'),
+                              borderRadius: BorderRadius.circular(20),
+                              child: GFCard(
+                                boxFit: BoxFit.cover,
+                                color: Theme.of(context).colorScheme.surface,
+                                margin: EdgeInsets.zero,
+                                padding: const EdgeInsets.all(14),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                                ),
+                                content: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      s.nameNp ?? s.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${s.topics.length} topics',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Center(
+                                      child: CircularPercentIndicator(
+                                        radius: 40.0,
+                                        lineWidth: 7.0,
+                                        percent: progress,
+                                        center: Text(
+                                          '${(progress * 100).toStringAsFixed(0)}%',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: cardColor,
+                                          ),
+                                        ),
+                                        progressColor: cardColor,
+                                        backgroundColor: cardColor.withOpacity(0.12),
+                                        circularStrokeCap: CircularStrokeCap.round,
+                                        animation: true,
+                                        animationDuration: 1000,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ).animate(delay: (40 * i).ms).fadeIn(duration: 400.ms).scale(begin: const Offset(0.95, 0.95));
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+          loading: () => GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 0.85,
+            ),
+            itemCount: 6,
+            itemBuilder: (context, i) {
+              return GFShimmer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(20),
                   ),
+                ),
+              );
+            },
+          ),
+          error: (e, s) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('Error loading subjects: $e'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.refresh(modelSubjectsProvider),
+                  child: const Text('Retry'),
                 ),
               ],
             ),
-            const Spacer(),
-            Text(
-              s['name'] as String,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, height: 1.2),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              s['desc'] as String,
-              style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: s['progress'] as double,
-                minHeight: 5,
-                backgroundColor: (s['color'] as Color).withOpacity(0.12),
-                valueColor: AlwaysStoppedAnimation<Color>(s['color'] as Color),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
-    ).animate(delay: (40 * i).ms).fadeIn(duration: 400.ms).scale(begin: const Offset(0.9, 0.9));
+    );
   }
 }

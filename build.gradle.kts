@@ -1,9 +1,20 @@
-// Top-level build file — uses Gradle version catalog (gradle/libs.versions.toml)
-// AGP 9.x provides built-in Kotlin support (do NOT apply org.jetbrains.kotlin.android).
-plugins {
-    alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.android.library) apply false
-    alias(libs.plugins.compose.compiler) apply false
-    alias(libs.plugins.hilt) apply false
-    alias(libs.plugins.ksp) apply false
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+val mobileBuildDir: Directory =
+    rootProject.layout.projectDirectory
+        .dir("apps/mobile/build")
+rootProject.layout.buildDirectory.value(mobileBuildDir)
+
+subprojects {
+    val subprojectBuildDir: Directory = mobileBuildDir.dir(project.name)
+    project.layout.buildDirectory.value(subprojectBuildDir)
+}
+
+tasks.register<Delete>("clean") {
+    delete(rootProject.layout.buildDirectory)
 }

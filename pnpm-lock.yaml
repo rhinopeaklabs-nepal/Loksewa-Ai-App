@@ -224,6 +224,9 @@ importers:
 
   services/ai-service:
     dependencies:
+      '@fastify/rate-limit':
+        specifier: ^9.1.0
+        version: 9.1.0
       '@fastify/cors':
         specifier: ^9.0.1
         version: 9.0.1
@@ -248,10 +251,50 @@ importers:
       openai:
         specifier: ^4.55.0
         version: 4.104.0(zod@3.25.76)
+      uuid:
+        specifier: ^10.0.0
+        version: 10.0.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      tsx:
+        specifier: ^4.16.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  services/analytics-service:
+    dependencies:
+      '@fastify/cors':
+        specifier: ^9.0.1
+        version: 9.0.1
+      '@fastify/helmet':
+        specifier: ^11.1.1
+        version: 11.1.1
+      '@loksewa/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@loksewa/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
+      fastify:
+        specifier: ^4.28.0
+        version: 4.29.1
+      uuid:
+        specifier: ^10.0.0
+        version: 10.0.0
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.41
+      '@types/uuid':
+        specifier: ^10.0.0
+        version: 10.0.0
       tsx:
         specifier: ^4.16.0
         version: 4.22.4
@@ -305,6 +348,68 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@20.19.41)
 
+  services/content-service:
+    dependencies:
+      '@fastify/cors':
+        specifier: ^9.0.1
+        version: 9.0.1
+      '@fastify/helmet':
+        specifier: ^11.1.1
+        version: 11.1.1
+      '@loksewa/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
+      fastify:
+        specifier: ^4.28.0
+        version: 4.29.1
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.41
+      tsx:
+        specifier: ^4.16.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  services/exam-service:
+    dependencies:
+      '@fastify/cors':
+        specifier: ^9.0.1
+        version: 9.0.1
+      '@fastify/helmet':
+        specifier: ^11.1.1
+        version: 11.1.1
+      '@loksewa/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@loksewa/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
+      fastify:
+        specifier: ^4.28.0
+        version: 4.29.1
+      uuid:
+        specifier: ^10.0.0
+        version: 10.0.0
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.41
+      '@types/uuid':
+        specifier: ^10.0.0
+        version: 10.0.0
+      tsx:
+        specifier: ^4.16.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   services/gamification-service:
     dependencies:
       '@fastify/cors':
@@ -326,6 +431,37 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      tsx:
+        specifier: ^4.16.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  services/knowledge-service:
+    dependencies:
+      '@fastify/cors':
+        specifier: ^9.0.1
+        version: 9.0.1
+      '@fastify/helmet':
+        specifier: ^11.1.1
+        version: 11.1.1
+      '@loksewa/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@loksewa/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
+      fastify:
+        specifier: ^4.28.0
+        version: 4.29.1
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.41
       tsx:
         specifier: ^4.16.0
         version: 4.22.4
@@ -369,6 +505,74 @@ importers:
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@20.19.41)
+
+  services/memory-service:
+    dependencies:
+      '@fastify/cors':
+        specifier: ^9.0.1
+        version: 9.0.1
+      '@fastify/helmet':
+        specifier: ^11.1.1
+        version: 11.1.1
+      '@loksewa/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@loksewa/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
+      fastify:
+        specifier: ^4.28.0
+        version: 4.29.1
+      uuid:
+        specifier: ^10.0.0
+        version: 10.0.0
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.41
+      '@types/uuid':
+        specifier: ^10.0.0
+        version: 10.0.0
+      tsx:
+        specifier: ^4.16.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  services/notification-service:
+    dependencies:
+      '@fastify/cors':
+        specifier: ^9.0.1
+        version: 9.0.1
+      '@fastify/helmet':
+        specifier: ^11.1.1
+        version: 11.1.1
+      '@loksewa/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@loksewa/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
+      fastify:
+        specifier: ^4.28.0
+        version: 4.29.1
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.41
+      tsx:
+        specifier: ^4.16.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
 
   services/user-service:
     dependencies:

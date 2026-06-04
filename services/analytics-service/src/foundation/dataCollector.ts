@@ -605,11 +605,11 @@ export async function getTrainingStats(): Promise<{
   ]);
   
   return {
-    total_examples: parseInt(totals.rows[0]?.total ?? "0", 10),
-    by_type: Object.fromEntries(byType.rows.map(r => [r.data_type, parseInt(r.count, 10)])),
-    by_language: Object.fromEntries(byLang.rows.map(r => [r.language, parseInt(r.count, 10)])),
-    avg_quality: parseFloat(totals.rows[0]?.avg_quality ?? "0"),
-    datasets_count: parseInt(datasets.rows[0]?.count ?? "0", 10),
-    total_dataset_size_bytes: parseInt(datasets.rows[0]?.total_size ?? "0", 10)
+    total_examples: Number(totals.rows[0]?.total ?? 0),
+    by_type: Object.fromEntries(byType.rows.map(r => [r.data_type, Number(r.count)])),
+    by_language: Object.fromEntries(byLang.rows.map(r => [r.language, Number(r.count)])),
+    avg_quality: Number(totals.rows[0]?.avg_quality ?? 0),
+    datasets_count: Number(datasets.rows[0]?.count ?? 0),
+    total_dataset_size_bytes: Number(datasets.rows[0]?.total_size ?? 0)
   };
 }

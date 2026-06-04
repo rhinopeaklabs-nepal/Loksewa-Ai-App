@@ -83,6 +83,7 @@ class _BaselineQuizScreenState extends State<BaselineQuizScreen> {
   @override
   Widget build(BuildContext context) {
     final q = _questions[_index];
+    final options = q['options'] as List<String>;
     final progress = (_index + 1) / _questions.length;
 
     return Scaffold(
@@ -141,7 +142,7 @@ class _BaselineQuizScreenState extends State<BaselineQuizScreen> {
               const SizedBox(height: 24),
               Expanded(
                 child: ListView.separated(
-                  itemCount: (q['options'] as List).length,
+                  itemCount: options.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, i) {
                     final isPicked = _picked == i;
@@ -187,7 +188,7 @@ class _BaselineQuizScreenState extends State<BaselineQuizScreen> {
                             const SizedBox(width: 14),
                             Expanded(
                               child: Text(
-                                q['options'][i] as String,
+                                options[i],
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: isPicked ? FontWeight.w600 : FontWeight.w500,

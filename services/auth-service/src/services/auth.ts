@@ -35,6 +35,7 @@ import {
   incrementOTPAttempts,
   audit,
   updateUser,
+  type AuthUser,
 } from "../models/user.js";
 import type { AuthTokens, User, Language, ExamTarget } from "@loksewa/shared-types";
 
@@ -42,6 +43,17 @@ const REFRESH_TOKEN_TTL_DAYS = 30;
 const MAX_FAILED_ATTEMPTS = 5;
 const OTP_TTL_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
+
+function publicUser(user: AuthUser): User {
+  const {
+    password_hash: _passwordHash,
+    is_active: _isActive,
+    last_login_at: _lastLoginAt,
+    deleted_at: _deletedAt,
+    ...safeUser
+  } = user;
+  return safeUser;
+}
 
 export interface RegisterPayload {
   email?: string;
@@ -88,7 +100,7 @@ export async function register(payload: RegisterPayload): Promise<{ user: User; 
   await audit(user.id, "user.registered", { resource_id: user.id });
 
   const tokens = await issueTokens(user);
-  return { user, tokens };
+  return { user: publicUser(user), tokens };
 }
 
 export interface LoginPayload {
@@ -131,7 +143,7 @@ export async function login(
   await audit(user.id, "user.login", { resource_id: user.id, ...meta });
 
   const tokens = await issueTokens(user);
-  return { user, tokens };
+  return { user: publicUser(user), tokens };
 }
 
 // Passwordless OTP login
@@ -200,7 +212,7 @@ export async function verifyLoginOTP(
   }
 
   const tokens = await issueTokens(user);
-  return { user, tokens, is_new_user: isNewUser };
+  return { user: publicUser(user), tokens, is_new_user: isNewUser };
 }
 
 // Token management
@@ -301,14 +313,14 @@ export async function oauthLogin(profile: OAuthProfile): Promise<{ user: User; t
   await audit(user.id, `user.login.oauth.${profile.provider}`, { resource_id: user.id });
 
   const tokens = await issueTokens(user);
-  return { user, tokens, is_new_user: isNewUser };
+  return { user: publicUser(user), tokens, is_new_user: isNewUser };
 }
 
 // Profile management
 export async function getProfile(userId: string) {
   const user = await findUserById(userId);
   if (!user) throw new NotFoundError("User");
-  return user;
+  return publicUser(user);
 }
 
 export async function updateProfile(
@@ -317,7 +329,7 @@ export async function updateProfile(
 ) {
   const user = await updateUser(userId, patch);
   await audit(userId, "user.profile_updated", { resource_id: userId, metadata: patch });
-  return user;
+  return publicUser(user);
 }
 
 export async function changePassword(

@@ -2,33 +2,167 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/theme.dart';
+import '../../../shared/models/chat.dart';
+import '../../../shared/providers/data_providers.dart';
 
-class ChatScreen extends StatefulWidget {
+// Chat State Definition
+class ChatState {
+  final List<TutorMessage> messages;
+  final List<TutorConversation> conversations;
+  final String? activeConversationId;
+  final bool isLoading;
+  final bool isTyping;
+  final String? error;
+
+  ChatState({
+    this.messages = const [],
+    this.conversations = const [],
+    this.activeConversationId,
+    this.isLoading = false,
+    this.isTyping = false,
+    this.error,
+  });
+
+  ChatState copyWith({
+    List<TutorMessage>? messages,
+    List<TutorConversation>? conversations,
+    String? activeConversationId,
+    bool? isLoading,
+    bool? isTyping,
+    String? error,
+  }) {
+    return ChatState(
+      messages: messages ?? this.messages,
+      conversations: conversations ?? this.conversations,
+      activeConversationId: activeConversationId ?? this.activeConversationId,
+      isLoading: isLoading ?? this.isLoading,
+      isTyping: isTyping ?? this.isTyping,
+      error: error ?? this.error,
+    );
+  }
+}
+
+// Chat Notifier for managing state and API interactions
+class ChatNotifier extends StateNotifier<ChatState> {
+  final Ref _ref;
+
+  ChatNotifier(this._ref) : super(ChatState()) {
+    loadConversations();
+  }
+
+  Future<void> loadConversations() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final repo = _ref.read(tutorRepositoryProvider);
+      final list = await repo.getConversations();
+      if (list.isNotEmpty) {
+        final activeId = list.first.id;
+        final msgs = await repo.getConversationMessages(activeId);
+        state = state.copyWith(
+          conversations: list,
+          activeConversationId: activeId,
+          messages: msgs,
+          isLoading: false,
+        );
+      } else {
+        state = state.copyWith(conversations: [], isLoading: false);
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> selectConversation(String id) async {
+    state = state.copyWith(isLoading: true, activeConversationId: id);
+    try {
+      final repo = _ref.read(tutorRepositoryProvider);
+      final msgs = await repo.getConversationMessages(id);
+      state = state.copyWith(messages: msgs, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> startNewChat() async {
+    state = state.copyWith(
+      activeConversationId: null,
+      messages: [],
+    );
+  }
+
+  Future<void> send(String text) async {
+    if (text.trim().isEmpty) return;
+
+    final repo = _ref.read(tutorRepositoryProvider);
+    final isNew = state.activeConversationId == null;
+
+    // Create a temporary local message to show in the UI immediately
+    final tempUserMsg = TutorMessage(
+      id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      conversationId: state.activeConversationId ?? '',
+      role: 'user',
+      content: text,
+      createdAt: DateTime.now(),
+    );
+
+    state = state.copyWith(
+      messages: [...state.messages, tempUserMsg],
+      isTyping: true,
+    );
+
+    try {
+      final updatedConv = await repo.sendMessage(
+        message: text,
+        conversationId: state.activeConversationId,
+      );
+
+      // Reload conversations list
+      final list = await repo.getConversations();
+
+      // Fetch the updated messages list
+      final msgs = await repo.getConversationMessages(updatedConv.id);
+
+      state = state.copyWith(
+        activeConversationId: updatedConv.id,
+        messages: msgs,
+        conversations: list,
+        isTyping: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isTyping: false,
+        error: 'Failed to send message. Please try again.',
+      );
+    }
+  }
+}
+
+// Provider definition
+final chatProvider = StateNotifierProvider<ChatNotifier, ChatState>((ref) {
+  return ChatNotifier(ref);
+});
+
+class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _ctrl = TextEditingController();
   final _scrollCtrl = ScrollController();
-  final _messages = <_Message>[
-    _Message(
-      text: 'Hi! I\'m your AI tutor. Ask me anything about GK, Math, English, or Constitution!',
-      isUser: false,
-      time: DateTime.now().subtract(const Duration(minutes: 2)),
-      suggestions: [
-        'Explain the structure of Nepali Constitution',
-        'How to solve profit & loss problems?',
-        'Tips for Kharidar exam',
-      ],
-    ),
+
+  final List<String> _suggestions = [
+    'Explain the structure of Nepali Constitution',
+    'How to solve profit & loss problems?',
+    'Tips for Kharidar exam',
   ];
-  bool _isTyping = false;
 
   @override
   void dispose() {
@@ -37,87 +171,8 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  Future<void> _send(String text) async {
-    if (text.trim().isEmpty) return;
-    final userMsg = _Message(
-      text: text.trim(),
-      isUser: true,
-      time: DateTime.now(),
-    );
-    setState(() {
-      _messages.add(userMsg);
-      _ctrl.clear();
-      _isTyping = true;
-    });
-    _scrollToBottom();
-
-    // Simulate AI response
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (!mounted) return;
-    final aiMsg = _Message(
-      text: _generateResponse(text),
-      isUser: false,
-      time: DateTime.now(),
-    );
-    setState(() {
-      _messages.add(aiMsg);
-      _isTyping = false;
-    });
-    _scrollToBottom();
-  }
-
-  String _generateResponse(String q) {
-    if (q.toLowerCase().contains('constitution')) {
-      return '''The Constitution of Nepal 2015 is divided into **35 parts**, **308 articles**, and **9 schedules**.
-
-**Key Features:**
-- Federal Democratic Republic
-- 7 federal provinces
-- Three tiers of government: Federal, Provincial, Local
-- Fundamental rights in Part 3
-- Directive principles in Part 4
-
-Would you like me to explain a specific article?''';
-    }
-    if (q.toLowerCase().contains('profit') || q.toLowerCase().contains('math')) {
-      return '''**Profit & Loss Formulas:**
-
-- **Profit %** = (Profit / Cost Price) × 100
-- **Loss %** = (Loss / Cost Price) × 100
-- **SP** = CP × (1 + Profit%/100)
-- **CP** = SP × (1 - Loss%/100)
-
-**Example:** If CP = Rs. 500 and SP = Rs. 600:
-Profit = 600 - 500 = Rs. 100
-Profit % = (100/500) × 100 = **20%**
-
-Try a practice problem now!''';
-    }
-    if (q.toLowerCase().contains('kharidar') || q.toLowerCase().contains('tips')) {
-      return '''**Top Tips for Kharidar Exam:**
-
-1. 📚 **GK is King** - 40% of the paper. Focus on Nepali history, geography, polity.
-2. 🧮 **Math Practice** - Daily 30 minutes on arithmetic.
-3. 📖 **English Grammar** - Master tenses, voice, narration.
-4. 📰 **Current Affairs** - Last 6 months of national news.
-5. ⏰ **Time Management** - Don't spend more than 1 min per MCQ.
-
-Want a study plan? I can build a personalized one for you!''';
-    }
-    return '''Great question! Let me help you understand that.
-
-**${q.substring(0, q.length.clamp(0, 50))}...** is an important topic for Loksewa exams.
-
-I recommend:
-1. Reading the official syllabus
-2. Practicing 10-15 MCQs on this topic
-3. Reviewing explanations for any wrong answers
-
-Would you like me to generate practice questions on this topic?''';
-  }
-
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(
           _scrollCtrl.position.maxScrollExtent,
@@ -130,6 +185,16 @@ Would you like me to generate practice questions on this topic?''';
 
   @override
   Widget build(BuildContext context) {
+    final chatState = ref.watch(chatProvider);
+
+    // Listen to changes in message list length to scroll down
+    ref.listen<ChatState>(chatProvider, (previous, next) {
+      if (previous?.messages.length != next.messages.length ||
+          previous?.isTyping != next.isTyping) {
+        _scrollToBottom();
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -166,154 +231,213 @@ Would you like me to generate practice questions on this topic?''';
           ],
         ),
         actions: [
-          IconButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.history),
-            onPressed: () {},
+            onSelected: (val) {
+              if (val == 'new') {
+                ref.read(chatProvider.notifier).startNewChat();
+              } else {
+                ref.read(chatProvider.notifier).selectConversation(val);
+              }
+            },
+            itemBuilder: (context) {
+              final list = [
+                const PopupMenuItem(
+                  value: 'new',
+                  child: Row(
+                    children: [
+                      Icon(Icons.add, size: 18),
+                      SizedBox(width: 8),
+                      Text('New Conversation'),
+                    ],
+                  ),
+                ),
+              ];
+              for (var conv in chatState.conversations) {
+                list.add(
+                  PopupMenuItem(
+                    value: conv.id,
+                    child: Text(
+                      conv.title.isNotEmpty ? conv.title : 'Conversation ${conv.id.substring(0, 4)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                );
+              }
+              return list;
+            },
           ),
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollCtrl,
-                padding: const EdgeInsets.all(16),
-                itemCount: _messages.length,
-                itemBuilder: (context, i) {
-                  return _buildMessage(context, _messages[i], i);
-                },
+        child: chatState.isLoading && chatState.messages.isEmpty
+            ? const Center(
+                child: GFLoader(
+                  type: GFLoaderType.circle,
+                ),
+              )
+            : Column(
+                children: [
+                  Expanded(
+                    child: chatState.messages.isEmpty
+                        ? _buildWelcomeAndSuggestions()
+                        : ListView.builder(
+                            controller: _scrollCtrl,
+                            padding: const EdgeInsets.all(16),
+                            itemCount: chatState.messages.length,
+                            itemBuilder: (context, i) {
+                              return _buildMessage(context, chatState.messages[i], i);
+                            },
+                          ),
+                  ),
+                  if (chatState.isTyping) _buildTypingIndicator(),
+                  _buildInputBar(context, chatState.isTyping),
+                ],
               ),
-            ),
-            if (_isTyping) _buildTypingIndicator(),
-            _buildInputBar(context),
-          ],
-        ),
       ),
     );
   }
 
-  Widget _buildMessage(BuildContext context, _Message m, int index) {
+  Widget _buildWelcomeAndSuggestions() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 40),
+          const GFAvatar(
+            radius: 36,
+            backgroundColor: AppTheme.primary,
+            child: Icon(Icons.smart_toy_rounded, color: Colors.white, size: 40),
+          ).animate().scale(duration: 400.ms),
+          const SizedBox(height: 20),
+          Text(
+            'Loksewa AI Tutor',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Ask me questions about Nepal General Knowledge, Mathematics, English, the Constitution, or syllabus tips.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 32),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Suggestions to start:',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ..._suggestions.map((s) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Theme.of(context).colorScheme.outline),
+                ),
+                child: ListTile(
+                  title: Text(s, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 12),
+                  onTap: () {
+                    ref.read(chatProvider.notifier).send(s);
+                  },
+                ),
+              ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessage(BuildContext context, TutorMessage m, int index) {
+    final isUser = m.role == 'user';
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        mainAxisAlignment: m.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!m.isUser) _buildAvatar(),
-          if (!m.isUser) const SizedBox(width: 8),
+          if (!isUser)
+            const GFAvatar(
+              radius: 18,
+              backgroundColor: AppTheme.primary,
+              child: Icon(Icons.smart_toy_rounded, color: Colors.white, size: 18),
+            ),
+          if (!isUser) const SizedBox(width: 8),
           Flexible(
             child: Column(
-              crossAxisAlignment: m.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                Container(
+                GFCard(
+                  color: isUser ? AppTheme.primary : Theme.of(context).colorScheme.surface,
+                  margin: EdgeInsets.zero,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.75,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(18),
+                    topRight: const Radius.circular(18),
+                    bottomLeft: Radius.circular(isUser ? 18 : 4),
+                    bottomRight: Radius.circular(isUser ? 4 : 18),
                   ),
-                  decoration: BoxDecoration(
-                    color: m.isUser
-                        ? AppTheme.primary
-                        : Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(18),
-                      topRight: const Radius.circular(18),
-                      bottomLeft: Radius.circular(m.isUser ? 18 : 4),
-                      bottomRight: Radius.circular(m.isUser ? 4 : 18),
-                    ),
-                    border: m.isUser
-                        ? null
-                        : Border.all(color: Theme.of(context).colorScheme.outline),
-                  ),
-                  child: MarkdownBody(
-                    data: m.text,
+                  border: isUser
+                      ? Border.all(color: Colors.transparent)
+                      : Border.all(color: Theme.of(context).colorScheme.outline),
+                  content: MarkdownBody(
+                    data: m.content,
                     styleSheet: MarkdownStyleSheet(
                       p: TextStyle(
-                        color: m.isUser ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                        color: isUser ? Colors.white : Theme.of(context).colorScheme.onSurface,
                         fontSize: 14,
                         height: 1.4,
                       ),
                       strong: TextStyle(
-                        color: m.isUser ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                        color: isUser ? Colors.white : Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w800,
                       ),
                       code: TextStyle(
-                        backgroundColor: m.isUser
+                        backgroundColor: isUser
                             ? Colors.white.withOpacity(0.2)
                             : AppTheme.surfaceVariant,
                         fontSize: 12,
-                        color: m.isUser ? Colors.white : AppTheme.primaryDark,
+                        color: isUser ? Colors.white : AppTheme.primaryDark,
                       ),
                     ),
                   ),
                 ),
-                if (!m.isUser && m.suggestions != null) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: m.suggestions!.map((s) {
-                      return InkWell(
-                        onTap: () => _send(s),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            s,
-                            style: const TextStyle(
-                              color: AppTheme.tertiary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
                 const SizedBox(height: 4),
-                Text(
-                  _formatTime(m.time),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Text(
+                    _formatTime(m.createdAt),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10),
+                  ),
                 ),
               ],
             ),
           ),
-          if (m.isUser) const SizedBox(width: 8),
-          if (m.isUser) _buildUserAvatar(),
+          if (isUser) const SizedBox(width: 8),
+          if (isUser)
+            const GFAvatar(
+              radius: 18,
+              backgroundColor: AppTheme.secondary,
+              child: Text(
+                'U',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
         ],
       ),
-    ).animate(delay: (50 * index).ms).fadeIn(duration: 300.ms).slideY(begin: 0.1);
-  }
-
-  Widget _buildAvatar() {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        gradient: AppTheme.purpleGradient,
-        shape: BoxShape.circle,
-      ),
-      child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 18),
-    );
-  }
-
-  Widget _buildUserAvatar() {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
-        shape: BoxShape.circle,
-      ),
-      child: const Center(
-        child: Text('R', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-      ),
-    );
+    ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.05);
   }
 
   Widget _buildTypingIndicator() {
@@ -321,7 +445,11 @@ Would you like me to generate practice questions on this topic?''';
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          _buildAvatar(),
+          const GFAvatar(
+            radius: 18,
+            backgroundColor: AppTheme.primary,
+            child: Icon(Icons.smart_toy_rounded, color: Colors.white, size: 18),
+          ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -330,20 +458,23 @@ Would you like me to generate practice questions on this topic?''';
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: Theme.of(context).colorScheme.outline),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
-              children: List.generate(3, (i) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
+              children: [
+                GFLoader(
+                  type: GFLoaderType.circle,
+                  size: GFSize.SMALL,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Typing...',
+                  style: TextStyle(
                     color: AppTheme.textSecondary,
-                    shape: BoxShape.circle,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
-                ).animate(onPlay: (c) => c.repeat(reverse: true))
-                    .fadeIn(duration: 600.ms, delay: (200 * i).ms);
-              }),
+                ),
+              ],
             ),
           ),
         ],
@@ -351,7 +482,7 @@ Would you like me to generate practice questions on this topic?''';
     );
   }
 
-  Widget _buildInputBar(BuildContext context) {
+  Widget _buildInputBar(BuildContext context, bool isTyping) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -362,13 +493,10 @@ Would you like me to generate practice questions on this topic?''';
         top: false,
         child: Row(
           children: [
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.attach_file_rounded),
-            ),
             Expanded(
               child: TextField(
                 controller: _ctrl,
+                enabled: !isTyping,
                 decoration: InputDecoration(
                   hintText: 'Ask anything...',
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -381,7 +509,10 @@ Would you like me to generate practice questions on this topic?''';
                     borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
                   ),
                 ),
-                onSubmitted: _send,
+                onSubmitted: (val) {
+                  ref.read(chatProvider.notifier).send(val);
+                  _ctrl.clear();
+                },
                 textInputAction: TextInputAction.send,
               ),
             ),
@@ -392,7 +523,12 @@ Would you like me to generate practice questions on this topic?''';
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                onPressed: () => _send(_ctrl.text),
+                onPressed: isTyping
+                    ? null
+                    : () {
+                        ref.read(chatProvider.notifier).send(_ctrl.text);
+                        _ctrl.clear();
+                      },
                 icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
               ),
             ),
@@ -407,17 +543,4 @@ Would you like me to generate practice questions on this topic?''';
     final m = t.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
-}
-
-class _Message {
-  final String text;
-  final bool isUser;
-  final DateTime time;
-  final List<String>? suggestions;
-  _Message({
-    required this.text,
-    required this.isUser,
-    required this.time,
-    this.suggestions,
-  });
 }

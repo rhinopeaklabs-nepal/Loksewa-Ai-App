@@ -2,7 +2,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
-import rateLimit from "@fastify/rate-limit";
 import { logger, loadConfig, checkHealth, closePool, closeKafka } from "@loksewa/shared-utils";
 import { registerRoutes } from "./routes/index.js";
 import { ensureCollections } from "./rag/retriever.js";
@@ -15,7 +14,6 @@ async function buildServer() {
 
   await app.register(helmet);
   await app.register(cors, { origin: true, credentials: true });
-  await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
 
   app.get("/healthz", async () => ({ status: "ok", service: "ai-service" }));
   app.get("/readyz", async () => ({ status: (await checkHealth()) ? "ready" : "not_ready" }));

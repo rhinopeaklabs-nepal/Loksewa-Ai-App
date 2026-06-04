@@ -2,40 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/onboarding/screens/welcome_screen.dart';
-import '../features/onboarding/screens/language_select_screen.dart';
-import '../features/onboarding/screens/interests_screen.dart';
-import '../features/onboarding/screens/exam_target_screen.dart';
-import '../features/onboarding/screens/baseline_quiz_screen.dart';
-
-import '../features/auth/screens/login_screen.dart';
-import '../features/auth/screens/register_screen.dart';
-import '../features/auth/screens/otp_screen.dart';
-import '../features/auth/screens/forgot_password_screen.dart';
-
-import '../features/splash/splash_screen.dart';
-import '../features/main/main_shell.dart';
-
-import '../features/home/screens/home_screen.dart';
-import '../features/mission/screens/mission_screen.dart';
-import '../features/exam/screens/exam_list_screen.dart';
-import '../features/exam/screens/exam_take_screen.dart';
-import '../features/exam/screens/exam_result_screen.dart';
-import '../features/exam/screens/exam_review_screen.dart';
-import '../features/chat/screens/chat_screen.dart';
-import '../features/leaderboard/screens/leaderboard_screen.dart';
-import '../features/scan/screens/scan_screen.dart';
+import '../features/redesign/redesigned_screens.dart' hide ProfileScreen, AchievementsScreen, SettingsScreen, SubscriptionScreen, NotificationsScreen;
 import '../features/profile/screens/profile_screen.dart';
 import '../features/profile/screens/achievements_screen.dart';
 import '../features/profile/screens/settings_screen.dart';
-import '../features/notifications/screens/notifications_screen.dart';
-import '../features/streak/screens/streak_screen.dart';
-import '../features/badges/screens/badges_screen.dart';
-import '../features/analytics/screens/analytics_screen.dart';
-import '../features/subjects/screens/subjects_screen.dart';
-import '../features/subjects/screens/subject_detail_screen.dart';
-import '../features/questions/screens/question_practice_screen.dart';
 import '../features/payment/screens/subscription_screen.dart';
+import '../features/notifications/screens/notifications_screen.dart';
 
 class AppRoutes {
   static const splash = '/';

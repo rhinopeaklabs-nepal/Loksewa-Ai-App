@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "tsx watch src/server.ts", "build": "tsc", "start": "node dist/server.js" },
+  "scripts": { "dev": "tsx watch src/server.ts", "build": "tsc", "start": "node dist/server.js", "typecheck": "tsc --noEmit" },
   "dependencies": {
     "@loksewa/shared-types": "workspace:*",
     "@loksewa/shared-utils": "workspace:*",

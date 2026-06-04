@@ -5,6 +5,7 @@ import { getEmbedding } from "../llm/client.js";
 import type { Citation, Memory } from "@loksewa/shared-types";
 
 let qdrant: QdrantClient | null = null;
+type KnowledgeSourceType = Citation["source_type"] | "memory";
 
 function getQdrant(): QdrantClient {
   if (qdrant) return qdrant;
@@ -28,7 +29,7 @@ export interface KnowledgeChunk {
   id: string;
   text: string;
   source_id: string;
-  source_type: "question" | "document" | "current_affair" | "memory";
+  source_type: KnowledgeSourceType;
   topic: string;
   subtopic?: string;
   year?: number;
@@ -237,11 +238,10 @@ export async function retrieveUserMemories(
 export function buildCitations(chunks: KnowledgeChunk[]): Citation[] {
   return chunks.slice(0, 3).map((c) => ({
     source_id: c.source_id,
-    source_type: c.source_type === "question" ? "question" : c.source_type === "memory" ? "memory" : "document",
+    source_type: c.source_type === "memory" ? "document" : c.source_type,
     title: c.topic + (c.subtopic ? ` / ${c.subtopic}` : ""),
     snippet: c.text.slice(0, 200),
-    score: c.score,
-    metadata: c.metadata
+    score: c.score
   }));
 }
 
@@ -265,8 +265,7 @@ export async function expandQueryWithContext(
   context: { recentTopics?: string[]; currentMission?: string } = {}
 ): Promise<string> {
   // Get user's recent weak topics for query expansion
-  const weakTopics = await retrieveUserMemories(userId, "struggle weak difficulty", {
-    limit: 3,
+  const weakTopics = await retrieveUserMemories(userId, "struggle weak difficulty", 3, {
     memoryTypes: ["learning"],
     minImportance: 4
   });

@@ -1,7 +1,8 @@
-// App Dialogs — Welcome, Success, Confirmation, Error
+// App Dialogs using GetWidget
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:getwidget/getwidget.dart';
 
 import '../../app/theme.dart';
 
@@ -105,13 +106,16 @@ class _WelcomeResultDialogState extends State<WelcomeResultDialog> {
             padding: const EdgeInsets.all(24),
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                child: Column(
+              child: GFAlert(
+                type: GFAlertType.rounded,
+                alignment: Alignment.center,
+                width: MediaQuery.of(context).size.width * 0.9,
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                title: widget.title ?? (passed ? 'Great start!' : 'Keep going!'),
+                titleTextStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ) ?? const TextStyle(),
+                content: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
@@ -130,16 +134,9 @@ class _WelcomeResultDialogState extends State<WelcomeResultDialog> {
                     ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
                     const SizedBox(height: 20),
                     Text(
-                      widget.title ?? (passed ? 'Great start!' : 'Keep going!'),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
                       widget.message ??
                           (passed
-                              ? 'You scored $widget.score% on the assessment.\nWe\'ll tailor your daily missions.'
+                              ? 'You scored ${widget.score}% on the assessment.\nWe\'ll tailor your daily missions.'
                               : 'Don\'t worry! We\'ll start you with easier questions.'),
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -147,28 +144,22 @@ class _WelcomeResultDialogState extends State<WelcomeResultDialog> {
                             height: 1.5,
                           ),
                     ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: FilledButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          widget.onContinue();
-                        },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Text(
-                          'Let\'s Go',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                        ),
-                      ),
-                    ),
                   ],
+                ),
+                bottomBar: SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: GFButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      widget.onContinue();
+                    },
+                    text: 'Let\'s Go',
+                    color: AppTheme.primary,
+                    shape: GFButtonShape.pills,
+                    blockButton: true,
+                    textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
                 ),
               ),
             ),
@@ -190,62 +181,56 @@ class SuccessDialog {
   }) {
     return showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(
-                color: AppTheme.primaryContainer,
-                shape: BoxShape.circle,
+        backgroundColor: Colors.transparent,
+        child: GFAlert(
+          type: GFAlertType.rounded,
+          title: title,
+          titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ) ?? const TextStyle(),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: AppTheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  size: 40,
+                  color: AppTheme.primary,
+                ),
+              ).animate().scale(duration: 500.ms, curve: Curves.elasticOut),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
-              child: const Icon(
-                Icons.check_circle_rounded,
-                size: 40,
-                color: AppTheme.primary,
-              ),
-            ).animate().scale(duration: 500.ms, curve: Curves.elasticOut),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
-        ),
-        actions: [
-          SizedBox(
+            ],
+          ),
+          bottomBar: SizedBox(
             width: double.infinity,
             height: 48,
-            child: FilledButton(
+            child: GFButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 onContinue();
               },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(actionText),
+              text: actionText,
+              color: AppTheme.primary,
+              shape: GFButtonShape.pills,
+              blockButton: true,
             ),
           ),
-        ],
-        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        ),
       ),
     );
   }
@@ -264,25 +249,38 @@ class ConfirmDialog {
   }) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(cancelText),
+        backgroundColor: Colors.transparent,
+        child: GFAlert(
+          type: GFAlertType.rounded,
+          title: title,
+          titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ) ?? const TextStyle(),
+          content: Text(
+            message,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: isDestructive
-                  ? AppTheme.error
-                  : (confirmColor ?? AppTheme.primary),
-            ),
-            child: Text(confirmText),
+          bottomBar: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              GFButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                text: cancelText,
+                type: GFButtonType.transparent,
+                textColor: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              GFButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                text: confirmText,
+                color: isDestructive ? AppTheme.error : (confirmColor ?? AppTheme.primary),
+                shape: GFButtonShape.pills,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
     return result ?? false;
@@ -296,9 +294,10 @@ class StreakReminderDialog {
       context: context,
       builder: (_) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
+        backgroundColor: Colors.transparent,
+        child: GFAlert(
+          type: GFAlertType.rounded,
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
@@ -330,25 +329,19 @@ class StreakReminderDialog {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.secondary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Start Mission',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
             ],
+          ),
+          bottomBar: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: GFButton(
+              onPressed: () => Navigator.of(context).pop(),
+              text: 'Start Mission',
+              color: AppTheme.secondary,
+              shape: GFButtonShape.pills,
+              blockButton: true,
+              textStyle: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ),
       ),
@@ -369,18 +362,17 @@ class BadgeEarnedDialog {
       context: context,
       builder: (_) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
+        backgroundColor: Colors.transparent,
+        child: GFAlert(
+          type: GFAlertType.rounded,
+          title: '🎉 Badge Unlocked!',
+          titleTextStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppTheme.secondary,
+                fontWeight: FontWeight.w700,
+              ) ?? const TextStyle(),
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '🎉 Badge Unlocked!',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.secondary,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
               const SizedBox(height: 16),
               Container(
                 width: 100,
@@ -408,25 +400,19 @@ class BadgeEarnedDialog {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: color,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Awesome!',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
             ],
+          ),
+          bottomBar: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: GFButton(
+              onPressed: () => Navigator.of(context).pop(),
+              text: 'Awesome!',
+              color: color,
+              shape: GFButtonShape.pills,
+              blockButton: true,
+              textStyle: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ),
       ),
@@ -445,18 +431,17 @@ class LevelUpDialog {
       context: context,
       builder: (_) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
+        backgroundColor: Colors.transparent,
+        child: GFAlert(
+          type: GFAlertType.rounded,
+          title: '⭐ Level Up!',
+          titleTextStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppTheme.secondary,
+                fontWeight: FontWeight.w700,
+              ) ?? const TextStyle(),
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '⭐ Level Up!',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.secondary,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
               const SizedBox(height: 16),
               Stack(
                 alignment: Alignment.center,
@@ -501,25 +486,19 @@ class LevelUpDialog {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.secondary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Keep Going',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
             ],
+          ),
+          bottomBar: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: GFButton(
+              onPressed: () => Navigator.of(context).pop(),
+              text: 'Keep Going',
+              color: AppTheme.secondary,
+              shape: GFButtonShape.pills,
+              blockButton: true,
+              textStyle: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ),
       ),
@@ -579,18 +558,16 @@ class InfoBottomSheet {
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: FilledButton(
+                child: GFButton(
                   onPressed: () {
                     Navigator.of(context).pop();
                     onAction();
                   },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: Text(actionText, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  text: actionText,
+                  color: AppTheme.primary,
+                  shape: GFButtonShape.pills,
+                  blockButton: true,
+                  textStyle: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
             ],

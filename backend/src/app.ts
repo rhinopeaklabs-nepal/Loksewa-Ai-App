@@ -729,6 +729,35 @@ function searchQuestions(queryText: string, limit = 3) {
     .map((item) => ({ question: item.question, bm25_score: item.score || 1, similarity: terms.length ? item.score / terms.length : 1 }));
 }
 
+type QuestionListQuery = {
+  page?: string | number;
+  limit?: string | number;
+  topic?: string;
+  subjectId?: string;
+  subject_id?: string;
+  difficulty?: string;
+};
+
+function listVerifiedQuestions(query: QuestionListQuery) {
+  const limit = Math.max(1, Math.min(200, Number(query.limit) || 50));
+  const page = Math.max(1, Number(query.page) || 1);
+  const topic = query.topic || query.subjectId || query.subject_id;
+  const difficulty = query.difficulty?.toLowerCase();
+  const start = (page - 1) * limit;
+  return db.questions
+    .filter((item) => {
+      if (item.deleted_at || item.verification_status !== "verified") return false;
+      if (topic && item.syllabus_category !== topic) return false;
+      if (difficulty && item.exam_level?.toLowerCase() !== difficulty) return false;
+      return true;
+    })
+    .slice(start, start + limit);
+}
+
+function findQuestion(identifier: string) {
+  return db.questions.find((item) => String(item.id) === identifier || item.public_id === identifier);
+}
+
 function attemptQuestions(mock: MockTest): Question[] {
   const explicit = mock.question_ids
     .map((id) => db.questions.find((question) => question.id === id && !question.deleted_at))
@@ -857,7 +886,46 @@ export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     bodyLimit: REQUEST_BODY_LIMIT_BYTES,
     logger: { level: process.env.LOG_LEVEL ?? "info" },
-    trustProxy: TRUST_PROXY
+    trustProxy: TRUST_PROXY,
+    rewriteUrl(req) {
+      const url = req.url ?? "";
+      if (url.startsWith("/api/")) {
+        if (url.startsWith("/api/users/me/stats")) {
+          return url.replace("/api/users/me/stats", "/v1/users/me/stats");
+        } else if (url.startsWith("/api/users/me")) {
+          if (req.method === "GET") {
+            return url.replace("/api/users/me", "/v1/auth/me");
+          } else if (req.method === "PATCH") {
+            return url.replace("/api/users/me", "/v1/users/me");
+          }
+        } else if (url.startsWith("/api/analytics/stats")) {
+          return url.replace("/api/analytics/stats", "/v1/stats/me");
+        } else if (url.startsWith("/api/mock-tests/published") || url.startsWith("/api/mock-tests")) {
+          return url.replace("/api/mock-tests", "/v1/mock-tests");
+        } else if (url.startsWith("/api/tests/") && url.includes("/results")) {
+          const attemptId = url.split("/")[3];
+          return `/v1/mock-attempts/${attemptId}`;
+        } else if (url.startsWith("/api/lessons/")) {
+          const questionId = url.split("/")[3];
+          return `/v1/questions/${questionId}/ai-lesson`;
+        } else if (url.startsWith("/api/questions")) {
+          return url;
+        } else if (!url.startsWith("/api/auth/google") &&
+                   !url.startsWith("/api/subjects") &&
+                   !url.startsWith("/api/questions/search") &&
+                   !url.startsWith("/api/analytics/") &&
+                   !url.startsWith("/api/tutor/") &&
+                   !url.startsWith("/api/scan") &&
+                   !url.startsWith("/api/subscription/") &&
+                   !url.startsWith("/api/learning/") &&
+                   !url.startsWith("/api/lessons") &&
+                   !url.startsWith("/api/progress") &&
+                   !url.startsWith("/api/flashcards")) {
+          return url.replace("/api/", "/v1/");
+        }
+      }
+      return url;
+    }
   });
   app.addHook("onRequest", async (request, reply) => {
     const forwardedProto = request.headers["x-forwarded-proto"];
@@ -963,9 +1031,9 @@ export async function buildApp(): Promise<FastifyInstance> {
     return detail ?? reply.status(404).send({ detail: "Published course not found" });
   });
 
-  app.get("/v1/questions", async () => db.questions.filter((item) => !item.deleted_at && item.verification_status === "verified"));
+  app.get("/v1/questions", async (request) => listVerifiedQuestions(request.query as QuestionListQuery));
   app.get("/v1/questions/:id", async (request, reply) => {
-    const question = db.questions.find((item) => item.id === Number((request.params as { id: string }).id));
+    const question = findQuestion((request.params as { id: string }).id);
     return question ?? reply.status(404).send({ detail: "Question not found" });
   });
   app.get("/v1/questions/:id/ai-lesson", async (request, reply) => {
@@ -1270,10 +1338,187 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get("/v1/admin/scraper/documents", async () => db.scraped_documents);
 
   app.get("/api/subjects", async () => db.subjects.filter((item) => item.status === "published").map((subject) => ({ ...subject, name: subject.title })));
+  app.get("/api/questions", async (request) => listVerifiedQuestions(request.query as QuestionListQuery));
   app.get("/api/questions/search", async (request) => {
     const query = request.query as { q?: string; limit?: string };
     const matches = searchQuestions(query.q ?? "", Number(query.limit ?? 3));
     return { answer_source: matches.length ? "verified_db" : "uncertain", matches };
+  });
+  app.get("/api/questions/:id", async (request, reply) => {
+    const question = findQuestion((request.params as { id: string }).id);
+    return question ?? reply.status(404).send({ detail: "Question not found" });
+  });
+
+  app.patch("/v1/users/me", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const body = request.body as { fullName?: string; avatarUrl?: string };
+    if (body.fullName) user.full_name = body.fullName;
+    if (body.avatarUrl) user.picture_url = body.avatarUrl;
+    user.updated_at = now();
+    saveDb(db);
+    return { success: true, data: publicUser(user) };
+  });
+
+  app.get("/api/analytics/weaknesses", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    return {
+      success: true,
+      data: [
+        { id: "1", subjectId: "law", name: "Constitution article numbers", progress: 0.35, count: 5 },
+        { id: "2", subjectId: "gk", name: "Federalism and Local Powers", progress: 0.54, count: 3 }
+      ]
+    };
+  });
+
+  app.get("/api/analytics/recommendations", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    return {
+      success: true,
+      data: {
+        id: "rec_1",
+        title: "Constitution & Polity",
+        suggestion: "Practice 10 Constitution MCQs",
+        reason: "Based on your weak area in Polity"
+      }
+    };
+  });
+
+  app.post("/api/tutor/chat", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const body = request.body as { message?: string };
+    const responseMsg = `I am your AI Loksewa tutor. Regarding "${body.message ?? "study"}", let me clarify that Part 3 of the Constitution guarantees 31 fundamental rights, which is a frequent exam topic!`;
+    return {
+      success: true,
+      data: {
+        id: `msg_${randomUUID()}`,
+        conversationId: "conv_default",
+        role: "assistant",
+        content: responseMsg,
+        createdAt: now()
+      }
+    };
+  });
+
+  app.get("/api/tutor/conversations", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    return {
+      success: true,
+      data: [
+        { id: "conv_default", userId: user.id, title: "Constitution & Fundamental Rights Q&A", createdAt: now() }
+      ]
+    };
+  });
+
+  app.post("/api/scan", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    const jobId = `job_${randomUUID()}`;
+    return {
+      success: true,
+      data: {
+        id: jobId,
+        userId: user.id,
+        status: "completed",
+        extractedText: "How many fundamental rights are in the Nepal Constitution?",
+        matchedQuestion: JSON.stringify(db.questions[0]),
+        createdAt: now()
+      }
+    };
+  });
+
+  app.get("/api/scan/:id/result", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    return {
+      success: true,
+      data: {
+        id: (request.params as { id: string }).id,
+        userId: user.id,
+        status: "completed",
+        extractedText: "How many fundamental rights are in the Nepal Constitution?",
+        matchedQuestion: JSON.stringify(db.questions[0]),
+        createdAt: now()
+      }
+    };
+  });
+
+  app.get("/api/subscription/plans", async (request, reply) => {
+    return {
+      success: true,
+      data: [
+        { id: "plan_free", name: "Free Tier", code: "free", price: 0.0, currency: "NPR", durationDays: 9999, featuresJson: '["Daily prediction sets", "Limited AI chat"]', isActive: true },
+        { id: "plan_premium", name: "Premium Pro", code: "premium", price: 500.0, currency: "NPR", durationDays: 30, featuresJson: '["Unlimited mock tests", "Spaced flashcards", "Unlimited AI chat tutor"]', isActive: true }
+      ]
+    };
+  });
+
+  app.post("/api/subscription/checkout", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    return {
+      success: true,
+      data: {
+        id: `sub_${randomUUID()}`,
+        userId: user.id,
+        planId: "plan_premium",
+        status: "active",
+        startedAt: now(),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    };
+  });
+
+  app.get("/api/subscription/current", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    return {
+      success: true,
+      data: {
+        id: `sub_current_${user.id}`,
+        userId: user.id,
+        planId: "plan_free",
+        status: "active",
+        startedAt: now(),
+        expiresAt: null
+      }
+    };
+  });
+
+  app.get("/api/learning/lessons", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    return {
+      success: true,
+      data: []
+    };
+  });
+
+  app.get("/api/learning/flashcards", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    return {
+      success: true,
+      data: [
+        { id: "fc_1", front: "When was the current Constitution of Nepal promulgated?", back: "2072 Ashoj 3, September 20, 2015", reviewCount: 0 },
+        { id: "fc_2", front: "How many Articles are in the Constitution of Nepal?", back: "308 Articles", reviewCount: 0 }
+      ]
+    };
+  });
+
+  app.get("/api/learning/progress", async (request, reply) => {
+    const user = requireUser(request, reply);
+    if (!user) return;
+    return {
+      success: true,
+      data: [
+        { id: "prog_1", userId: user.id, topicId: "Constitution", completionPercentage: 45.0, questionsAttempted: 15, questionsCorrect: 12, timeSpentMinutes: 45, streakDays: 5 }
+      ]
+    };
   });
   if (ENABLE_ARCHITECTURE_ROUTES) {
     app.get("/architecture", async (_request, reply) => {

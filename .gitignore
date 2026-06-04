@@ -68,6 +68,7 @@ runtime/
 # ─── Node / Monorepo ─────────────────────────────────────────────────────────
 node_modules/
 **/node_modules/
+.pnpm-store/
 backend/dist/
 admin-dashboard/node_modules/
 admin-dashboard/.next/

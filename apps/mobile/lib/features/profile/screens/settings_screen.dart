@@ -1,27 +1,86 @@
-// Settings Screen
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router.dart';
 import '../../../app/theme.dart';
 import '../../../shared/widgets/app_dialogs.dart';
+import '../../../shared/providers/auth_provider.dart';
+import '../../../shared/providers/data_providers.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _darkMode = false;
   bool _notifications = true;
   bool _soundEffects = true;
   bool _vibration = true;
   bool _biometric = false;
-  String _language = 'English';
+  String _language = 'en';
   String _examTarget = 'Nayab Subba';
+
+  @override
+  void initState() {
+    super.initState();
+    final user = ref.read(authStateProvider).user;
+    if (user != null) {
+      _darkMode = user.preferences.darkMode;
+      _notifications = user.preferences.notifications;
+      _soundEffects = user.preferences.audioEffects;
+      _language = user.preferences.language;
+    }
+  }
+
+  Future<void> _updatePreferences({
+    bool? notifications,
+    bool? darkMode,
+    bool? audioEffects,
+    String? language,
+  }) async {
+    final currentUser = ref.read(authStateProvider).user;
+    if (currentUser == null) return;
+
+    final updatedPrefs = currentUser.preferences.copyWith(
+      notifications: notifications,
+      darkMode: darkMode,
+      audioEffects: audioEffects,
+      language: language,
+    );
+
+    try {
+      await ref.read(userRepositoryProvider).updateProfile(
+        preferences: updatedPrefs,
+      );
+      
+      // Update local credentials state
+      await ref.read(authStateProvider.notifier).checkAuth();
+      
+      if (mounted) {
+        GFToast.showToast(
+          'Preferences updated successfully!',
+          context,
+          toastPosition: GFToastPosition.BOTTOM,
+          backgroundColor: Colors.green,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        GFToast.showToast(
+          'Failed to update preferences: $e',
+          context,
+          toastPosition: GFToastPosition.BOTTOM,
+          backgroundColor: Colors.red,
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,40 +102,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _buildSwitchTile(
                   context,
-                  icon: Icons.dark_mode,
+                  icon: Icons.dark_mode_rounded,
                   color: AppTheme.tertiary,
                   title: 'Dark Mode',
                   subtitle: 'Use dark theme',
                   value: _darkMode,
-                  onChanged: (v) => setState(() => _darkMode = v),
+                  onChanged: (v) {
+                    setState(() => _darkMode = v);
+                    _updatePreferences(darkMode: v);
+                  },
                 ),
                 _divider(context),
-                _buildNavigationTile(
+                _buildSwitchTile(
                   context,
-                  icon: Icons.language,
+                  icon: Icons.language_rounded,
                   color: Colors.blue,
-                  title: 'Language',
-                  trailing: _language,
-                  onTap: () => InfoBottomSheet.show(
-                    context,
-                    title: 'Language',
-                    message: 'Choose your preferred language for the app.',
-                    actionText: 'OK',
-                    onAction: () {},
-                  ),
+                  title: 'Nepali Language',
+                  subtitle: _language == 'ne' ? 'App language is Nepali' : 'App language is English',
+                  value: _language == 'ne',
+                  onChanged: (v) {
+                    final newLang = v ? 'ne' : 'en';
+                    setState(() => _language = newLang);
+                    _updatePreferences(language: newLang);
+                  },
                 ),
                 _divider(context),
                 _buildNavigationTile(
                   context,
-                  icon: Icons.school,
+                  icon: Icons.school_rounded,
                   color: AppTheme.primary,
                   title: 'Exam Target',
                   trailing: _examTarget,
                   onTap: () => InfoBottomSheet.show(
                     context,
                     title: 'Exam Target',
-                    message: 'Change which exam you are preparing for.',
-                    actionText: 'OK',
+                    message: 'To change exam focus, please update it from home screen onboarding options.',
+                    actionText: 'Got it',
                     onAction: () {},
                   ),
                 ),
@@ -89,27 +150,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _buildSwitchTile(
                   context,
-                  icon: Icons.notifications,
+                  icon: Icons.notifications_rounded,
                   color: AppTheme.secondary,
                   title: 'Push Notifications',
                   subtitle: 'Receive daily reminders',
                   value: _notifications,
-                  onChanged: (v) => setState(() => _notifications = v),
+                  onChanged: (v) {
+                    setState(() => _notifications = v);
+                    _updatePreferences(notifications: v);
+                  },
                 ),
                 _divider(context),
                 _buildSwitchTile(
                   context,
-                  icon: Icons.volume_up,
+                  icon: Icons.volume_up_rounded,
                   color: Colors.purple,
                   title: 'Sound Effects',
                   subtitle: 'Play sounds on actions',
                   value: _soundEffects,
-                  onChanged: (v) => setState(() => _soundEffects = v),
+                  onChanged: (v) {
+                    setState(() => _soundEffects = v);
+                    _updatePreferences(audioEffects: v);
+                  },
                 ),
                 _divider(context),
                 _buildSwitchTile(
                   context,
-                  icon: Icons.vibration,
+                  icon: Icons.vibration_rounded,
                   color: AppTheme.warning,
                   title: 'Vibration',
                   subtitle: 'Haptic feedback',
@@ -125,7 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _buildSwitchTile(
                   context,
-                  icon: Icons.fingerprint,
+                  icon: Icons.fingerprint_rounded,
                   color: Colors.indigo,
                   title: 'Biometric Login',
                   subtitle: 'Use fingerprint / Face ID',
@@ -135,7 +202,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _divider(context),
                 _buildNavigationTile(
                   context,
-                  icon: Icons.lock_reset,
+                  icon: Icons.lock_reset_rounded,
                   color: Colors.red,
                   title: 'Change Password',
                   onTap: () => context.push(AppRoutes.forgotPassword),
@@ -149,16 +216,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _buildNavigationTile(
                   context,
-                  icon: Icons.workspace_premium,
+                  icon: Icons.workspace_premium_rounded,
                   color: AppTheme.warning,
                   title: 'Subscription',
-                  trailing: 'Free',
+                  trailing: ref.watch(authStateProvider).user?.subscriptionId != null ? 'Premium' : 'Free',
                   onTap: () => context.push(AppRoutes.subscription),
                 ),
                 _divider(context),
                 _buildNavigationTile(
                   context,
-                  icon: Icons.download,
+                  icon: Icons.download_rounded,
                   color: Colors.teal,
                   title: 'Download Data',
                   onTap: () {
@@ -173,7 +240,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _divider(context),
                 _buildNavigationTile(
                   context,
-                  icon: Icons.delete_forever,
+                  icon: Icons.delete_forever_rounded,
                   color: AppTheme.error,
                   title: 'Delete Account',
                   isDestructive: true,
@@ -270,10 +337,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
-          Switch(
+          GFToggle(
             value: value,
-            onChanged: onChanged,
-            activeColor: AppTheme.primary,
+            onChanged: (val) {
+              if (val != null) {
+                onChanged(val);
+              }
+            },
+            type: GFToggleType.ios,
           ),
         ],
       ),

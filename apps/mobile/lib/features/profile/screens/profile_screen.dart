@@ -1,231 +1,290 @@
-// Profile Screen
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../app/router.dart';
 import '../../../app/theme.dart';
 import '../../../shared/widgets/app_dialogs.dart';
+import '../../../shared/providers/auth_provider.dart';
+import '../../../shared/providers/data_providers.dart';
 
-class ProfileScreen extends StatelessWidget {
+final userStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  return ref.watch(userRepositoryProvider).getStats();
+});
+
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+    final statsAsync = ref.watch(userStatsProvider);
+
+    final name = user?.name ?? 'Guest User';
+    final email = user?.email ?? '';
+    final initials = name.isNotEmpty
+        ? name.trim().split(RegExp(r'\s+')).map((s) => s[0]).take(2).join().toUpperCase()
+        : 'U';
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-          child: Column(
-            children: [
-              // Header
-              Row(
-                children: [
-                  Text(
-                    'Profile',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(userStatsProvider);
+            return ref.read(userStatsProvider.future);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+            child: Column(
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Text(
+                      'Profile',
+                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => context.push(AppRoutes.settings),
+                      icon: const Icon(Icons.settings_outlined),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.surface,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(color: Theme.of(context).colorScheme.outline),
                         ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => context.push(AppRoutes.settings),
-                    icon: const Icon(Icons.settings_outlined),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.surface,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: BorderSide(color: Theme.of(context).colorScheme.outline),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Profile card
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.heroGradient,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: AppTheme.primaryShadow,
+                  ],
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
+                const SizedBox(height: 16),
+
+                // Profile Card Container
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.heroGradient,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: AppTheme.primaryShadow,
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          GFAvatar(
+                            size: GFSize.LARGE,
+                            shape: GFAvatarShape.circle,
+                            backgroundImage: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty
+                                ? CachedNetworkImageProvider(user!.avatarUrl!)
+                                : null,
+                            backgroundColor: AppTheme.secondary,
+                            child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
+                                ? Text(
+                                    initials,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                : null,
                           ),
-                          child: const Center(
-                            child: Text(
-                              'R',
-                              style: TextStyle(
-                                color: AppTheme.primary,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                              ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  email,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      statsAsync.when(
+                        data: (stats) {
+                          final quizzes = stats['total_mocks_completed'] ?? 0;
+                          final accuracy = stats['correct_rate'] ?? 0;
+                          final answered = stats['total_questions_answered'] ?? 0;
+                          final bestScore = stats['best_score'] ?? 0;
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              const Text(
-                                'Ram Bahadur',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Level 8 • 2,450 XP',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(Icons.local_fire_department, color: Colors.amber, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '12-day streak',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              _statBadge('$quizzes', 'Quizzes'),
+                              _statBadge('$accuracy%', 'Accuracy'),
+                              _statBadge('$answered', 'Questions'),
+                              _statBadge('$bestScore%', 'Best Score'),
                             ],
+                          );
+                        },
+                        loading: () => const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        ),
+                        error: (_, __) => Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _statBadge('0', 'Quizzes'),
+                            _statBadge('0%', 'Accuracy'),
+                            _statBadge('0', 'Questions'),
+                            _statBadge('0%', 'Best Score'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
+                const SizedBox(height: 24),
+
+                // Menu items container using GFListTile
+                Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Theme.of(context).colorScheme.outline),
+                  ),
+                  child: Column(
+                    children: [
+                      GFListTile(
+                        onTap: () => context.push(AppRoutes.achievements),
+                        margin: EdgeInsets.zero,
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        avatar: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppTheme.secondary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
                           ),
+                          child: const Icon(Icons.military_tech_rounded, color: AppTheme.secondary, size: 20),
                         ),
-                        IconButton(
-                          onPressed: () {},
-                          icon: const Icon(Icons.edit, color: Colors.white, size: 18),
+                        titleText: 'Achievements',
+                        subTitleText: 'View your milestones & trophies',
+                        icon: const Icon(Icons.chevron_right, size: 20),
+                      ),
+                      _divider(context),
+                      GFListTile(
+                        onTap: () => context.push(AppRoutes.subscription),
+                        margin: EdgeInsets.zero,
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        avatar: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 20),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _statBadge('142', 'Rank'),
-                        _statBadge('85%', 'Accuracy'),
-                        _statBadge('348', 'Quizzes'),
-                        _statBadge('24', 'Badges'),
-                      ],
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1),
-              const SizedBox(height: 20),
-              // Quick actions
-              Row(
-                children: [
-                  Expanded(
-                    child: _quickAction(
-                      context,
-                      icon: Icons.bar_chart_rounded,
-                      label: 'Analytics',
-                      color: AppTheme.tertiary,
-                      onTap: () => context.push(AppRoutes.analytics),
-                    ),
+                        titleText: 'Subscription',
+                        subTitleText: user?.subscriptionId != null ? 'Premium Active' : 'Upgrade to Premium Plan',
+                        icon: const Icon(Icons.chevron_right, size: 20),
+                      ),
+                      _divider(context),
+                      GFListTile(
+                        onTap: () => context.push(AppRoutes.settings),
+                        margin: EdgeInsets.zero,
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        avatar: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.settings_outlined, color: AppTheme.primary, size: 20),
+                        ),
+                        titleText: 'Settings',
+                        subTitleText: 'Theme, notifications & language',
+                        icon: const Icon(Icons.chevron_right, size: 20),
+                      ),
+                      _divider(context),
+                      GFListTile(
+                        onTap: () {
+                          InfoBottomSheet.show(
+                            context,
+                            title: 'Help & Support',
+                            message: 'Need assistance? Email us at support@loksewaai.com or visit our site.',
+                            actionText: 'Close',
+                            onAction: () {},
+                          );
+                        },
+                        margin: EdgeInsets.zero,
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        avatar: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.help_outline_rounded, color: Colors.blue, size: 20),
+                        ),
+                        titleText: 'Help & Support',
+                        subTitleText: 'Contact support team',
+                        icon: const Icon(Icons.chevron_right, size: 20),
+                      ),
+                      _divider(context),
+                      GFListTile(
+                        onTap: () async {
+                          final ok = await ConfirmDialog.show(
+                            context,
+                            title: 'Sign Out?',
+                            message: 'Are you sure you want to sign out?',
+                            confirmText: 'Sign Out',
+                            isDestructive: true,
+                          );
+                          if (ok && context.mounted) {
+                            await ref.read(authStateProvider.notifier).logout();
+                            if (context.mounted) {
+                              context.go(AppRoutes.login);
+                            }
+                          }
+                        },
+                        margin: EdgeInsets.zero,
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        avatar: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppTheme.error.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.logout_rounded, color: AppTheme.error, size: 20),
+                        ),
+                        titleText: 'Sign Out',
+                        subTitleText: 'Logout from your account',
+                        icon: const Icon(Icons.chevron_right, size: 20),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _quickAction(
-                      context,
-                      icon: Icons.military_tech_rounded,
-                      label: 'Achievements',
-                      color: AppTheme.secondary,
-                      onTap: () => context.push(AppRoutes.achievements),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _quickAction(
-                      context,
-                      icon: Icons.emoji_events_rounded,
-                      label: 'Badges',
-                      color: AppTheme.warning,
-                      onTap: () => context.push(AppRoutes.badges),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _quickAction(
-                      context,
-                      icon: Icons.local_fire_department_rounded,
-                      label: 'Streak',
-                      color: Colors.red,
-                      onTap: () => context.push(AppRoutes.streak),
-                    ),
-                  ),
-                ],
-              ).animate(delay: 100.ms).fadeIn(duration: 500.ms),
-              const SizedBox(height: 24),
-              // Subscription banner
-              _buildSubscriptionBanner(context)
-                  .animate(delay: 200.ms)
-                  .fadeIn(duration: 500.ms),
-              const SizedBox(height: 24),
-              // Menu
-              Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Theme.of(context).colorScheme.outline),
-                ),
-                child: Column(
-                  children: [
-                    _menuItem(context, Icons.history_rounded, 'Activity History', 'View past quizzes', () {}),
-                    _divider(context),
-                    _menuItem(context, Icons.bookmark_outline, 'Saved Questions', 'Questions you bookmarked', () {}),
-                    _divider(context),
-                    _menuItem(context, Icons.share_rounded, 'Invite Friends', 'Get 100 XP per invite', () {}),
-                    _divider(context),
-                    _menuItem(context, Icons.support_agent_rounded, 'Help & Support', '24/7 customer support', () {}),
-                    _divider(context),
-                    _menuItem(context, Icons.info_outline, 'About', 'Version 1.0.0', () {}),
-                    _divider(context),
-                    _menuItem(
-                      context,
-                      Icons.logout_rounded,
-                      'Sign Out',
-                      'Sign out of your account',
-                      () async {
-                        final ok = await ConfirmDialog.show(
-                          context,
-                          title: 'Sign Out?',
-                          message: 'Are you sure you want to sign out?',
-                          confirmText: 'Sign Out',
-                          isDestructive: true,
-                        );
-                        if (ok && context.mounted) {
-                          context.go(AppRoutes.login);
-                        }
-                      },
-                      isDestructive: true,
-                    ),
-                  ],
-                ),
-              ).animate(delay: 300.ms).fadeIn(duration: 500.ms),
-            ],
+                ).animate(delay: 200.ms).fadeIn(duration: 500.ms),
+              ],
+            ),
           ),
         ),
       ),
@@ -253,122 +312,6 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _quickAction(BuildContext context, {required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          border: Border.all(color: Theme.of(context).colorScheme.outline),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSubscriptionBanner(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1F2937), Color(0xFF374151)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppTheme.secondary,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.workspace_premium_rounded, color: Colors.white, size: 28),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Upgrade to Pro',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Unlimited questions, AI tutor, no ads',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right, color: Colors.white),
-        ],
-      ),
-    ).animate(onTap: () => context.push(AppRoutes.subscription));
-  }
-
-  Widget _menuItem(BuildContext context, IconData icon, String title, String subtitle, VoidCallback onTap, {bool isDestructive = false}) {
-    final color = isDestructive ? AppTheme.error : Theme.of(context).colorScheme.onSurface;
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isDestructive ? AppTheme.error.withOpacity(0.1) : Theme.of(context).colorScheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
-      trailing: const Icon(Icons.chevron_right, size: 20),
     );
   }
 

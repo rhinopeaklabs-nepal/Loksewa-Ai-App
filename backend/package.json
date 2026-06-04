@@ -12,8 +12,15 @@
     "test:watch": "npm test",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test",
+    "render:build": "npm ci --include=dev && npm run build && npm prune --omit=dev",
+    "render:start": "npm run start:prod",
     "prisma:generate": "prisma generate"
   },
+  "engines": {
+    "node": ">=22.0.0 <23.0.0",
+    "npm": ">=10.0.0"
+  },
+  "packageManager": "npm@10.9.3",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.60.0",
     "@fastify/cors": "^11.0.1",

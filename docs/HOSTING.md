@@ -5,12 +5,73 @@ This guide is for the current backend in this repo: a Node.js/Fastify API in `ba
 Current backend facts:
 
 - Backend folder: `backend`
-- Build command: `npm ci && npm run build`
-- Start command: `npm run start`
+- Local build command: `npm ci && npm run build`
+- Local start command: `npm run start`
+- Render Node-service build command: `npm run render:build`
+- Render Node-service start command: `npm run render:start`
 - Health check: `GET /healthz`
 - Default local port: `8000`
 - Runtime database file: `NODE_BACKEND_DB_PATH`, defaulting to `runtime/node-backend-db.json` from the project root
 - Production Dockerfile: `backend/Dockerfile`
+
+## Main Backend vs `services/`
+
+This repo has two backend layers:
+
+1. `backend/` is the currently working standalone API used by the mobile app and admin dashboard. This is the backend you should deploy first.
+2. `services/` contains a planned microservice architecture: auth, user, learning, AI, gamification, analytics, content, exam, knowledge, memory, and notification services.
+
+Do not assume `services/` will deploy automatically when you deploy `backend/`. They are separate services with separate ports, Dockerfiles, dependencies, databases, and environment variables.
+
+Current status of `services/`:
+
+- Runnable package folders now exist for all service directories.
+- Local TypeScript build and typecheck now pass for all `services/*` packages.
+- Service Dockerfiles now use Node/PNPM builds and include `/healthz` healthchecks.
+- Runtime database/Redis/Kafka/Qdrant connectivity still must be verified in a live Docker Compose or VM environment before public traffic.
+
+Recommended deployment order:
+
+1. Deploy `backend/` first. This gives the mobile app a working hosted API.
+2. Use Oracle Cloud Always Free VM if you want to run the full future microservice stack.
+3. Repair and verify each `services/*` package before exposing it publicly.
+4. Add an API gateway or Nginx routing layer only after the services compile and pass smoke tests.
+
+### `services/` Deployability Matrix
+
+| Service | Port | Current State | Deploy Now? | Notes |
+|---|---:|---|---|---|
+| `backend/` | 8000 | Standalone Fastify API with working build/test | Yes | Deploy this first for the mobile app. |
+| `services/auth-service` | 3001 | Builds and typechecks | Runtime verification needed | Requires Postgres/Redis/JWT/OAuth env and endpoint smoke tests. |
+| `services/user-service` | 3002 | Builds and typechecks | Runtime verification needed | Requires Postgres/JWT env and endpoint smoke tests. |
+| `services/learning-service` | 3003 | Builds and typechecks | Runtime verification needed | Requires Postgres/Kafka/JWT env and endpoint smoke tests. |
+| `services/gamification-service` | 3004 | Builds and typechecks | Runtime verification needed | Requires Postgres/Redis/JWT env and endpoint smoke tests. |
+| `services/ai-service` | 3006 | Builds and typechecks with Node Dockerfile | Runtime verification needed | Requires Postgres/Kafka/Qdrant/LLM/JWT env and endpoint smoke tests. |
+| `services/knowledge-service` | 3007 | Builds and typechecks | Runtime verification needed | Requires Postgres/Qdrant or embedding-related env and endpoint smoke tests. |
+| `services/memory-service` | 3008 | Builds and typechecks | Runtime verification needed | Requires Postgres/vector-memory env and endpoint smoke tests. |
+| `services/exam-service` | 3009 | Builds and typechecks | Runtime verification needed | Requires Postgres/Redis/JWT env and endpoint smoke tests. |
+| `services/notification-service` | 3010 | Builds and typechecks | Runtime verification needed | Requires Postgres/JWT and notification provider env. |
+| `services/analytics-service` | 3011 | Builds and typechecks | Runtime verification needed | Requires Postgres/Kafka and analytics data env. |
+| `services/content-service` | 3012 | Builds and typechecks | Runtime verification needed | Minimal content shell with `/healthz` and `/readyz`. |
+
+Minimum acceptance checklist before any `services/*` backend is public:
+
+```bash
+pnpm --filter <service-name> build
+pnpm --filter <service-name> typecheck
+docker build -f services/<service>/Dockerfile .
+curl http://localhost:<port>/healthz
+```
+
+Run the automated backend/services audit:
+
+```bash
+npm run audit:backend-services
+```
+
+For free hosting of the full service layer, prefer one Oracle Always Free VM with Docker Compose over many Render free services. Render free services spin down independently, which is rough for service-to-service APIs.
+
+The existing `infrastructure/docker/docker-compose.yml` only starts local infrastructure such as Postgres, Redis, Qdrant, Kafka, MinIO, Prometheus, Grafana, and Jaeger. It does not currently start the app services. Containerized app services will also need internal host env vars such as `POSTGRES_HOST=postgres`, `REDIS_HOST=redis`, `QDRANT_URL=http://qdrant:6333`, and `KAFKA_BROKERS=kafka:29092`.
 
 ## Best Free Options
 
@@ -76,6 +137,62 @@ Limitations:
 - Local filesystem changes are not durable on free web services.
 - Free Render Postgres exists, but it expires after 30 days, so it is not a durable production database.
 - Good for demo, testing mobile login, and sharing a public API URL.
+
+### Fix The Current Failed Render Deploy
+
+The failed deploy in the screenshot is happening because Render created a `Node` service from the repo root and is running:
+
+```bash
+pnpm install --frozen-lockfile; pnpm run build
+```
+
+That builds the PNPM/Turbo workspace, not the actual `backend/` app. Locally, that command fails before the backend is deployed.
+
+Fastest fix for the existing Render service:
+
+1. Open your Render service: `Loksewa-Ai-App`.
+2. Go to `Settings`.
+3. Set:
+
+```text
+Root Directory: backend
+Build Command: npm run render:build
+Start Command: npm run render:start
+Health Check Path: /healthz
+```
+
+4. Add this environment variable so Render does not select a newer moving Node major version:
+
+```bash
+NODE_VERSION=22
+```
+
+5. Add all required production environment variables from this guide.
+6. Click `Manual Deploy` -> `Clear build cache & deploy`.
+
+Use this Node-service approach if you only need the API. The admin dashboard static build is not included unless you build and host it separately.
+
+Best fix if you want API plus admin dashboard in one service:
+
+1. Keep the new `render.yaml` file at the repo root.
+2. In Render, use `New` -> `Blueprint`.
+3. Select this GitHub repo.
+4. Let Render create the new Docker service named `loksewa-ai-backend`.
+5. Fill the secret values Render asks for.
+6. Deploy.
+
+Do not try to convert the existing `Loksewa-Ai-App` Node service into Docker. Render does not allow changing a service's runtime after creation. Either keep the current Node service and fix its root/build settings, or create the new Docker Blueprint service and use the new URL.
+
+The Blueprint uses:
+
+```text
+Runtime: Docker
+Dockerfile Path: ./backend/Dockerfile
+Docker Build Context: .
+Health Check Path: /healthz
+```
+
+This matches the Dockerfile in the repo, builds both `backend/` and `admin-dashboard/`, and starts `node dist/index.js`.
 
 ### Render Dashboard Setup
 
@@ -167,6 +284,78 @@ services:
 ### Render Data Warning
 
 Render Free is not safe for this backend's current JSON database because `/data/node-backend-db.json` can be lost when the service restarts, redeploys, or spins down. Use Render only as a demo unless you migrate the backend to a durable database.
+
+### Render Failure Checklist
+
+If deploy still fails:
+
+- If logs show `pnpm run build`, your service is still using the wrong root monorepo build. Set `Root Directory` to `backend`, or recreate through the Docker Blueprint.
+- If logs show `Cannot find module 'node:fs'` or `Cannot find name 'process'`, Render did not install TypeScript's Node build types. Use build command `npm run render:build`.
+- If logs show `Production Node backend requires secure configuration`, add the missing secret environment variables.
+- If logs show Node `26.x`, set `NODE_VERSION=22` or use the Docker Blueprint.
+- If deploy succeeds but `/` fails, test `/healthz` first. The root path redirects to `/dashboard/`, which needs the admin dashboard build.
+
+### Fix TypeScript Node Type Errors On Render
+
+If Render logs show errors like:
+
+```text
+Cannot find module 'node:crypto'
+Cannot find module 'node:fs'
+Cannot find name 'process'
+Cannot find name 'Buffer'
+```
+
+the backend is compiling without dev build dependencies such as `@types/node`. Keep `Root Directory` as `backend`, then set:
+
+```text
+Build Command: npm run render:build
+Start Command: npm run render:start
+```
+
+Then click `Manual Deploy` -> `Clear build cache & deploy`.
+
+### Fix `Production Node backend requires secure configuration`
+
+If Render logs show this error:
+
+```text
+Production Node backend requires secure configuration for:
+LOKSEWA_ADMIN_TOKEN, LOKSEWA_SESSION_SECRET, LOKSEWA_DELTA_SIGNING_SECRET, LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD
+```
+
+open `Environment` in the Render service and add these variables:
+
+```bash
+NODE_VERSION=22
+NODE_ENV=production
+LOKSEWA_ENV=production
+HOST=0.0.0.0
+PORT=8000
+
+LOKSEWA_ADMIN_TOKEN=<random-hex-32-or-longer>
+LOKSEWA_SESSION_SECRET=<random-hex-32-or-longer>
+LOKSEWA_DELTA_SIGNING_SECRET=<random-hex-32-or-longer>
+LOKSEWA_BOOTSTRAP_ADMIN_EMAIL=admin@yourdomain.com
+LOKSEWA_BOOTSTRAP_ADMIN_PASSWORD=<strong-password>
+
+NODE_BACKEND_DB_PATH=/opt/render/project/src/backend/runtime/node-backend-db.json
+LOKSEWA_TRUST_PROXY=true
+LOKSEWA_ENFORCE_HTTPS=true
+LOKSEWA_ENABLE_ARCHITECTURE_ROUTES=false
+LOKSEWA_SCRAPER_ENABLED=false
+LOKSEWA_CORS_ORIGINS=https://loksewa-ai-app.onrender.com
+```
+
+Generate secrets locally:
+
+```powershell
+$bytes = New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes); -join ($bytes | ForEach-Object { $_.ToString("x2") })
+```
+
+Run that command three times for `LOKSEWA_ADMIN_TOKEN`, `LOKSEWA_SESSION_SECRET`, and `LOKSEWA_DELTA_SIGNING_SECRET`.
+
+After adding the variables, click `Manual Deploy` -> `Clear build cache & deploy`.
 
 ## Option B: Oracle Cloud Always Free VM
 
@@ -412,21 +601,31 @@ Add:
 
 ## Mobile App API URL
 
-For Android release builds, set:
+The mobile app is Flutter-only and lives in `apps/mobile`. Do not build the root legacy Kotlin app for normal mobile releases.
+
+Create Flutter platform folders once after installing the Flutter SDK:
 
 ```powershell
-$env:LOKSEWA_API_BASE_URL="https://api.yourdomain.com/"
-.\gradlew.bat :app:assembleRelease
+cd apps/mobile
+flutter pub get
+flutter create --platforms=android,ios .
 ```
 
-For debug builds pointed at hosted backend:
+For Android release APK builds pointed at the hosted backend:
 
 ```powershell
-$env:LOKSEWA_DEBUG_API_BASE_URL="https://api.yourdomain.com/"
-.\gradlew.bat :app:assembleDebug
+cd apps/mobile
+flutter build apk --release --dart-define=API_URL=https://api.yourdomain.com/
 ```
 
-The URL must end with `/`.
+For emulator/debug runs pointed at the hosted backend:
+
+```powershell
+cd apps/mobile
+flutter run --dart-define=API_URL=https://api.yourdomain.com/
+```
+
+The `API_URL` value must end with `/`.
 
 ## Production Google Login
 

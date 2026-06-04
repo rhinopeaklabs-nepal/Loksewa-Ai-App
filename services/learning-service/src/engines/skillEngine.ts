@@ -94,20 +94,20 @@ export async function updateSkillScore(update: SkillScoreUpdate): Promise<SkillS
       else if (newRepCount === 2) newInterval = 6;
       else newInterval = Math.max(6, Math.round(intervalDays * easeFactor));
       
-      # Adjust ease factor based on performance consistency
+      // Adjust ease factor based on performance consistency
       if (learningGain > 5) {
-        newEase = Math.min(3.0, easeFactor + 0.15); # Big gain -> increase ease
+        newEase = Math.min(3.0, easeFactor + 0.15); // Big gain -> increase ease
       } else if (learningGain < 0) {
-        newEase = Math.max(1.3, easeFactor - 0.2); # Loss -> decrease ease
+        newEase = Math.max(1.3, easeFactor - 0.2); // Loss -> decrease ease
       } else {
-        newEase = Math.max(1.3, easeFactor + 0.05); # Small gain -> slight increase
+        newEase = Math.max(1.3, easeFactor + 0.05); // Small gain -> slight increase
       }
       
       nextReviewDays = newInterval;
     } else {
       newRepCount = 0;
       newInterval = 1;
-      # For failures, decrease ease factor more significantly for hard questions
+      // For failures, decrease ease factor more significantly for hard questions
       const failurePenalty = update.difficulty >= 4 ? 0.3 : 0.15;
       newEase = Math.max(1.3, easeFactor - failurePenalty);
       nextReviewDays = 1;

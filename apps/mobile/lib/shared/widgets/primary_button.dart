@@ -1,5 +1,6 @@
-// Reusable Primary Button
 import 'package:flutter/material.dart';
+import 'package:getwidget/getwidget.dart';
+import '../../app/theme.dart';
 
 class PrimaryButton extends StatelessWidget {
   final String text;
@@ -27,64 +28,35 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = backgroundColor ?? Theme.of(context).colorScheme.primary;
-    final fg = foregroundColor ?? Colors.white;
+    final buttonColor = backgroundColor ?? Theme.of(context).colorScheme.primary;
+    final onButtonColor = foregroundColor ?? 
+        (buttonColor == AppTheme.paper
+            ? AppTheme.primary
+            : Theme.of(context).colorScheme.onPrimary);
 
-    final child = isLoading
-        ? SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              valueColor: AlwaysStoppedAnimation<Color>(fg),
-            ),
-          )
-        : Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 20),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                text,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-            ],
-          );
-
-    if (outlined) {
-      return SizedBox(
-        width: width ?? double.infinity,
-        height: height,
-        child: OutlinedButton(
-          onPressed: isLoading ? null : onPressed,
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: bg, width: 2),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-          child: child,
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: width ?? double.infinity,
-      height: height,
-      child: FilledButton(
-        onPressed: isLoading ? null : onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: bg,
-          foregroundColor: fg,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: child,
-      ),
+    final gfButton = GFButton(
+      onPressed: isLoading ? null : onPressed,
+      text: isLoading ? 'Please wait' : text,
+      icon: isLoading
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : icon == null
+              ? null
+              : Icon(icon, size: 18, color: outlined ? buttonColor : onButtonColor),
+      size: GFSize.LARGE,
+      type: outlined ? GFButtonType.outline : GFButtonType.solid,
+      shape: GFButtonShape.pills,
+      blockButton: width == null, // Block layout when width is null
+      color: buttonColor,
+      textColor: outlined ? buttonColor : onButtonColor,
+      textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
     );
+
+    if (width == null) return gfButton;
+    return SizedBox(width: width, height: height, child: gfButton);
   }
 }

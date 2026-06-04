@@ -1,32 +1,40 @@
 # Dockerfile for ai-service
-FROM python:3.11-slim AS base
+FROM node:22-alpine AS base
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Install pnpm
+RUN npm install -g pnpm@9
 
-# Install Python dependencies
-COPY services/ai-service/requirements.txt* ./
-RUN pip install --no-cache-dir -r requirements.txt || true
+# Dependencies
+FROM base AS deps
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* tsconfig.base.json ./
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/shared-utils/package.json ./packages/shared-utils/
+COPY services/ai-service/package.json ./services/ai-service/
+RUN pnpm install --frozen-lockfile
 
-# Copy application
+# Build
+FROM base AS build
+COPY --from=deps /app /app
+COPY tsconfig.base.json ./
+COPY packages ./packages
 COPY services/ai-service ./services/ai-service
+RUN pnpm --filter @loksewa/shared-types build
+RUN pnpm --filter @loksewa/shared-utils build
+RUN pnpm --filter @loksewa/ai-service build
 
 # Runtime
-FROM python:3.11-slim AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-COPY --from=base /app/services/ai-service ./services/ai-service
-COPY --from=base /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=base /usr/local/bin /usr/local/bin
+ENV NODE_ENV=production
+RUN npm install -g pnpm@9
+COPY --from=build /app/package.json ./
+COPY --from=build /app/pnpm-lock.yaml* ./
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/services/ai-service ./services/ai-service
+RUN pnpm install --prod --frozen-lockfile
 
 EXPOSE 3006
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD curl -f http://localhost:3006/healthz || exit 1
-CMD ["uvicorn", "services.ai-service.src.server:app", "--host", "0.0.0.0", "--port", "3006"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD node -e "fetch('http://127.0.0.1:3006/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+USER node
+CMD ["node", "services/ai-service/dist/server.js"]

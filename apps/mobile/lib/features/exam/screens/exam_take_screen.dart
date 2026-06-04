@@ -1,39 +1,132 @@
-// Exam Take Screen — full mock test with timer
+// Exam Take Screen — full mock test with timer & swipable PageView
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router.dart';
 import '../../../app/theme.dart';
-import '../../../shared/widgets/app_dialogs.dart';
-import '../../../shared/widgets/gradient_background.dart';
+import '../../../shared/models/mock_test.dart';
+import '../../../shared/models/question.dart';
+import '../../../shared/providers/data_providers.dart';
 
-class ExamTakeScreen extends StatefulWidget {
+class ExamTakeScreen extends ConsumerStatefulWidget {
   final String examId;
   const ExamTakeScreen({super.key, required this.examId});
 
   @override
-  State<ExamTakeScreen> createState() => _ExamTakeScreenState();
+  ConsumerState<ExamTakeScreen> createState() => _ExamTakeScreenState();
 }
 
-class _ExamTakeScreenState extends State<ExamTakeScreen> {
-  int _index = 0;
-  int? _picked;
-  bool _answered = false;
-  int _correct = 0;
-  int _secondsLeft = 45 * 60; // 45 mins
-  Timer? _timer;
+class _ExamTakeScreenState extends ConsumerState<ExamTakeScreen> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  
+  // Test Session Status
+  String? _attemptId;
+  List<Question> _questions = [];
+  bool _isLoading = true;
   bool _submitted = false;
-  final Set<int> _visited = {0};
-  final Set<int> _answeredSet = {};
-  final Set<int> _marked = {};
+
+  // Local answer tracking: questionId -> selectedOptionIndex
+  final Map<String, int> _selectedAnswers = {};
+  
+  // Tracking user actions
+  final Set<int> _visitedIndices = {0};
+  final Set<int> _markedIndices = {};
+
+  // Countdown timer
+  int _secondsLeft = 60 * 60; // Default 60 mins fallback
+  Timer? _timer;
+
+  // Fallback local questions
+  final List<Question> _localFallbackQuestions = [
+    Question(
+      id: 'fq1',
+      questionText: 'Which of the following is a fundamental right guaranteed by the Constitution of Nepal?',
+      difficulty: 'medium',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      options: [
+        const QuestionOption(id: 'fo1', questionId: 'fq1', optionLabel: 'A', optionText: 'Right to property', isCorrect: false),
+        const QuestionOption(id: 'fo2', questionId: 'fq1', optionLabel: 'B', optionText: 'Right to education', isCorrect: true),
+        const QuestionOption(id: 'fo3', questionId: 'fq1', optionLabel: 'C', optionText: 'Right to work', isCorrect: false),
+        const QuestionOption(id: 'fo4', questionId: 'fq1', optionLabel: 'D', optionText: 'Right to housing', isCorrect: false),
+      ],
+    ),
+    Question(
+      id: 'fq2',
+      questionText: 'The headquarters of SAARC is located in:',
+      difficulty: 'easy',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      options: [
+        const QuestionOption(id: 'fo5', questionId: 'fq2', optionLabel: 'A', optionText: 'Kathmandu, Nepal', isCorrect: true),
+        const QuestionOption(id: 'fo6', questionId: 'fq2', optionLabel: 'B', optionText: 'New Delhi, India', isCorrect: false),
+        const QuestionOption(id: 'fo7', questionId: 'fq2', optionLabel: 'C', optionText: 'Dhaka, Bangladesh', isCorrect: false),
+        const QuestionOption(id: 'fo8', questionId: 'fq2', optionLabel: 'D', optionText: 'Colombo, Sri Lanka', isCorrect: false),
+      ],
+    ),
+    Question(
+      id: 'fq3',
+      questionText: 'Solve for x: 3x + 5 = 20',
+      difficulty: 'easy',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      options: [
+        const QuestionOption(id: 'fo9', questionId: 'fq3', optionLabel: 'A', optionText: 'x = 3', isCorrect: false),
+        const QuestionOption(id: 'fo10', questionId: 'fq3', optionLabel: 'B', optionText: 'x = 4', isCorrect: false),
+        const QuestionOption(id: 'fo11', questionId: 'fq3', optionLabel: 'C', optionText: 'x = 5', isCorrect: true),
+        const QuestionOption(id: 'fo12', questionId: 'fq3', optionLabel: 'D', optionText: 'x = 6', isCorrect: false),
+      ],
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _startTimer();
+    _pageController = PageController();
+    _initTestSession();
+  }
+
+  Future<void> _initTestSession() async {
+    try {
+      final repo = ref.read(mockTestRepositoryProvider);
+      
+      // Start test session in backend
+      final attempt = await repo.startTest(widget.examId);
+      
+      if (mounted) {
+        setState(() {
+          _attemptId = attempt.id;
+          
+          // Eagerly loaded mockTest questions or fallback
+          if (attempt.mockTest != null && attempt.mockTest!.questions.isNotEmpty) {
+            _questions = attempt.mockTest!.questions;
+          } else {
+            // Load questions list using query parameter if needed
+            _questions = _localFallbackQuestions;
+          }
+
+          _secondsLeft = (attempt.mockTest?.timeLimitMinutes ?? 45) * 60;
+          _isLoading = false;
+        });
+        _startTimer();
+      }
+    } catch (e) {
+      // Offline fallback
+      if (mounted) {
+        setState(() {
+          _attemptId = 'mock_attempt_local';
+          _questions = _localFallbackQuestions;
+          _secondsLeft = 45 * 60; // 45 minutes
+          _isLoading = false;
+        });
+        _startTimer();
+      }
+    }
   }
 
   void _startTimer() {
@@ -51,105 +144,76 @@ class _ExamTakeScreenState extends State<ExamTakeScreen> {
   }
 
   void _autoSubmit() {
+    _submitExamBackend();
+  }
+
+  Future<void> _submitExamBackend() async {
+    if (_submitted) return;
     setState(() => _submitted = true);
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (!mounted) return;
-      context.go('${AppRoutes.examResult}?id=${widget.examId}');
-    });
+    _timer?.cancel();
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final repo = ref.read(mockTestRepositoryProvider);
+      final attemptId = _attemptId ?? 'mock_attempt_local';
+
+      // Map answers to the model type
+      final List<TestAnswer> answers = _selectedAnswers.entries.map((e) {
+        return TestAnswer(questionId: e.key, selectedOptionIndex: e.value);
+      }).toList();
+
+      if (attemptId != 'mock_attempt_local') {
+        // Save answers and submit
+        await repo.saveAnswers(attemptId, answers);
+        await repo.submitTest(attemptId);
+      }
+
+      if (mounted) {
+        Navigator.pop(context); // pop loading dialog
+        context.go('${AppRoutes.examResult}?id=$attemptId');
+      }
+    } catch (e) {
+      // Fallback redirect if backend submission fails
+      if (mounted) {
+        Navigator.pop(context); // pop loading dialog
+        context.go('${AppRoutes.examResult}?id=${_attemptId ?? 'mock_attempt_local'}');
+      }
+    }
+  }
+
+  // Dynamic answer saving in background
+  Future<void> _saveAnswerBackground(String qId, int optionIndex) async {
+    final attemptId = _attemptId;
+    if (attemptId == null || attemptId == 'mock_attempt_local') return;
+
+    try {
+      final repo = ref.read(mockTestRepositoryProvider);
+      await repo.saveAnswers(attemptId, [
+        TestAnswer(questionId: qId, selectedOptionIndex: optionIndex)
+      ]);
+    } catch (_) {
+      // Fail silently in background to keep test uninterrupted
+    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
-  final _questions = const [
-    {
-      'q': 'Which of the following is a fundamental right guaranteed by the Constitution of Nepal?',
-      'options': [
-        'Right to property',
-        'Right to education',
-        'Right to work',
-        'Right to housing',
-      ],
-      'answer': 1,
-      'explain': 'Right to education (Article 31) is a fundamental right.',
-    },
-    {
-      'q': 'The headquarters of SAARC is located in:',
-      'options': ['Kathmandu', 'New Delhi', 'Dhaka', 'Colombo'],
-      'answer': 0,
-      'explain': 'SAARC Secretariat is in Kathmandu, Nepal.',
-    },
-    {
-      'q': 'Find the value of x: 3x + 5 = 20',
-      'options': ['3', '4', '5', '6'],
-      'answer': 2,
-      'explain': '3x = 15, so x = 5.',
-    },
-    {
-      'q': 'The longest mountain range in the world is:',
-      'options': ['Rockies', 'Andes', 'Himalayas', 'Alps'],
-      'answer': 1,
-      'explain': 'The Andes is the longest continental mountain range at 7,000 km.',
-    },
-    {
-      'q': 'Who is the author of "Muna Madan"?',
-      'options': [
-        'Laxmi Prasad Devkota',
-        'Parijat',
-        'Bhanubhakta Acharya',
-        'Motiram Bhatta',
-      ],
-      'answer': 0,
-      'explain': 'Laxmi Prasad Devkota wrote the epic poem "Muna Madan".',
-    },
-  ];
-
-  void _submit() {
+  void _onPageChanged(int index) {
     setState(() {
-      _answered = true;
-      _answeredSet.add(_index);
-      if (_picked == _questions[_index]['answer']) _correct++;
+      _currentIndex = index;
+      _visitedIndices.add(index);
     });
-  }
-
-  void _next() {
-    if (_index < _questions.length - 1) {
-      setState(() {
-        _index++;
-        _picked = null;
-        _answered = false;
-        _visited.add(_index);
-      });
-    }
-  }
-
-  void _prev() {
-    if (_index > 0) {
-      setState(() {
-        _index--;
-        _picked = null;
-        _answered = _answeredSet.contains(_index);
-        _visited.add(_index);
-      });
-    }
-  }
-
-  void _showSubmitDialog() async {
-    final ok = await ConfirmDialog.show(
-      context,
-      title: 'Submit Exam?',
-      message:
-          'You have ${_questions.length - _answeredSet.length} unanswered questions. Once submitted, you cannot change your answers.',
-      confirmText: 'Submit',
-      cancelText: 'Continue',
-    );
-    if (ok && mounted) {
-      setState(() => _submitted = true);
-      context.go('${AppRoutes.examResult}?id=${widget.examId}');
-    }
   }
 
   void _showQuestionPalette() {
@@ -158,7 +222,7 @@ class _ExamTakeScreenState extends State<ExamTakeScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
+        height: MediaQuery.of(context).size.height * 0.65,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -179,16 +243,14 @@ class _ExamTakeScreenState extends State<ExamTakeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  Text(
+                  const Text(
                     'Question Palette',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   Text(
-                    '${_answeredSet.length}/${_questions.length} answered',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    '${_selectedAnswers.length}/${_questions.length} Answered',
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
                   ),
                 ],
               ),
@@ -204,30 +266,34 @@ class _ExamTakeScreenState extends State<ExamTakeScreen> {
                 ),
                 itemCount: _questions.length,
                 itemBuilder: (context, i) {
-                  Color bg;
-                  Color fg;
-                  if (_answeredSet.contains(i)) {
+                  final q = _questions[i];
+                  final isAnswered = _selectedAnswers.containsKey(q.id);
+                  final isMarked = _markedIndices.contains(i);
+                  final isVisited = _visitedIndices.contains(i);
+
+                  Color bg = Theme.of(context).colorScheme.surfaceVariant;
+                  Color fg = Theme.of(context).colorScheme.onSurfaceVariant;
+
+                  if (isMarked) {
+                    bg = Colors.orange;
+                    fg = Colors.white;
+                  } else if (isAnswered) {
                     bg = AppTheme.success;
                     fg = Colors.white;
-                  } else if (_marked.contains(i)) {
-                    bg = AppTheme.secondary;
-                    fg = Colors.white;
-                  } else if (_visited.contains(i)) {
-                    bg = AppTheme.error.withOpacity(0.15);
+                  } else if (isVisited) {
+                    bg = AppTheme.error.withOpacity(0.12);
                     fg = AppTheme.error;
-                  } else {
-                    bg = Theme.of(context).colorScheme.surfaceVariant;
-                    fg = Theme.of(context).colorScheme.onSurfaceVariant;
                   }
-                  final isCurrent = i == _index;
+
+                  final isCurrent = i == _currentIndex;
+
                   return InkWell(
                     onTap: () {
-                      setState(() {
-                        _index = i;
-                        _picked = null;
-                        _answered = _answeredSet.contains(i);
-                        _visited.add(i);
-                      });
+                      _pageController.animateToPage(
+                        i,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
                       Navigator.pop(context);
                     },
                     borderRadius: BorderRadius.circular(12),
@@ -244,7 +310,7 @@ class _ExamTakeScreenState extends State<ExamTakeScreen> {
                         '${i + 1}',
                         style: TextStyle(
                           color: fg,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.bold,
                           fontSize: 15,
                         ),
                       ),
@@ -256,10 +322,12 @@ class _ExamTakeScreenState extends State<ExamTakeScreen> {
             Padding(
               padding: const EdgeInsets.all(20),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _legendDot(AppTheme.success, 'Answered'),
-                  const SizedBox(width: 12),
-                  _legendDot(AppTheme.secondary, 'Marked'),
+                  _legendItem(AppTheme.success, 'Answered'),
+                  _legendItem(Colors.orange, 'Marked'),
+                  _legendItem(AppTheme.error.withOpacity(0.3), 'Visited'),
+                  _legendItem(Theme.of(context).colorScheme.surfaceVariant, 'Unvisited'),
                 ],
               ),
             ),
@@ -269,7 +337,10 @@ class _ExamTakeScreenState extends State<ExamTakeScreen> {
                 width: double.infinity,
                 height: 52,
                 child: FilledButton(
-                  onPressed: _showSubmitDialog,
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _confirmSubmit();
+                  },
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primary,
                     shape: RoundedRectangleBorder(
@@ -286,188 +357,351 @@ class _ExamTakeScreenState extends State<ExamTakeScreen> {
     );
   }
 
-  Widget _legendDot(Color c, String label) {
+  Widget _legendItem(Color color, String label) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
         ),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final q = _questions[_index];
-    final minutes = (_secondsLeft ~/ 60).toString().padLeft(2, '0');
-    final seconds = (_secondsLeft % 60).toString().padLeft(2, '0');
-    final isLowTime = _secondsLeft < 300;
-
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
-          onPressed: () async {
-            final ok = await ConfirmDialog.show(
-              context,
-              title: 'Exit Exam?',
-              message: 'Your progress will be lost. Are you sure?',
-              confirmText: 'Exit',
-              isDestructive: true,
-            );
-            if (ok && mounted) context.pop();
-          },
+  Future<void> _confirmSubmit() async {
+    final unanswered = _questions.length - _selectedAnswers.length;
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Submit Exam?'),
+        content: Text(
+          unanswered > 0
+              ? 'You have $unanswered unanswered questions remaining. Are you sure you want to finish the exam?'
+              : 'You have answered all questions. Would you like to finish and view your score?',
         ),
-        title: Text('Q ${_index + 1}/${_questions.length}'),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: isLowTime ? AppTheme.error.withOpacity(0.15) : AppTheme.primaryContainer,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.timer,
-                  size: 14,
-                  color: isLowTime ? AppTheme.error : AppTheme.primaryDark,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '$minutes:$seconds',
-                  style: TextStyle(
-                    color: isLowTime ? AppTheme.error : AppTheme.primaryDark,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
           ),
-          IconButton(
-            onPressed: _showQuestionPalette,
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.grid_view_rounded),
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${_answeredSet.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.primary),
+            child: const Text('Submit'),
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Progress
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: (_index + 1) / _questions.length,
-                  minHeight: 6,
-                  backgroundColor: Theme.of(context).colorScheme.outline,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
-                ),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      q['q'] as String,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            height: 1.4,
-                          ),
-                    ).animate(key: ValueKey(_index)).fadeIn(duration: 400.ms),
-                    const SizedBox(height: 24),
-                    ...List.generate(q['options'].length, (i) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _buildOption(context, q, i),
-                      ).animate(delay: (60 * i).ms).fadeIn(duration: 400.ms);
-                    }),
-                    if (_answered) ...[
-                      const SizedBox(height: 12),
-                      _buildExplanation(q),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+    );
+
+    if (confirm == true) {
+      _submitExamBackend();
+    }
+  }
+
+  Future<void> _exitAttempt() async {
+    final bool? exit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Exit Exam?'),
+        content: const Text('Are you sure you want to exit? Your current answers will be saved, but the timer will continue running or expire.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: GFColors.DANGER),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+
+    if (exit == true && mounted) {
+      context.pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final minutes = (_secondsLeft ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_secondsLeft % 60).toString().padLeft(2, '0');
+    final isLowTime = _secondsLeft < 300; // less than 5 mins
+
+    return WillPopScope(
+      onWillPop: () async {
+        await _exitAttempt();
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            onPressed: _exitAttempt,
+          ),
+          title: Text('Question ${_currentIndex + 1}/${_questions.length}'),
+          actions: [
+            // Timer Badge
             Container(
-              padding: const EdgeInsets.all(20),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isLowTime ? AppTheme.error.withOpacity(0.12) : AppTheme.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.timer,
+                    size: 14,
+                    color: isLowTime ? AppTheme.error : AppTheme.primaryDark,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$minutes:$seconds',
+                    style: TextStyle(
+                      color: isLowTime ? AppTheme.error : AppTheme.primaryDark,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Grid Navigator trigger
+            IconButton(
+              onPressed: _showQuestionPalette,
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.grid_view_rounded),
+                  if (_selectedAnswers.isNotEmpty)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${_selectedAnswers.length}',
+                          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            // Linear Progress Indicator
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+              child: LinearProgressIndicator(
+                value: (_currentIndex + 1) / _questions.length,
+                minHeight: 6,
+                backgroundColor: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+              ),
+            ),
+            
+            // Swipeable PageView of Questions
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _questions.length,
+                onPageChanged: _onPageChanged,
+                itemBuilder: (context, qIndex) {
+                  final q = _questions[qIndex];
+                  final selectedIdx = _selectedAnswers[q.id];
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Card with question
+                        GFCard(
+                          margin: EdgeInsets.zero,
+                          padding: const EdgeInsets.all(16),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.5)),
+                          content: Text(
+                            q.questionTextNp ?? q.questionText,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        
+                        // Option Buttons
+                        ...List.generate(q.options.length, (optIdx) {
+                          final option = q.options[optIdx];
+                          final isSelected = selectedIdx == optIdx;
+                          final optionLabel = String.fromCharCode(65 + optIdx); // A, B, C, D
+
+                          Color borderColor = Theme.of(context).colorScheme.outline;
+                          Color bg = Theme.of(context).colorScheme.surface;
+                          Color textColor = Theme.of(context).colorScheme.onSurface;
+
+                          if (isSelected) {
+                            borderColor = AppTheme.primary;
+                            bg = AppTheme.primaryContainer;
+                            textColor = AppTheme.primaryDark;
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedAnswers[q.id] = optIdx;
+                                });
+                                // Save answer in background to API client
+                                _saveAnswerBackground(q.id, optIdx);
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: bg,
+                                  border: Border.all(
+                                    color: borderColor,
+                                    width: isSelected ? 2 : 1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? AppTheme.primary
+                                            : Theme.of(context).colorScheme.surfaceVariant,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        optionLabel,
+                                        style: TextStyle(
+                                          color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        option.optionTextNp ?? option.optionText,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                          color: textColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // Bottom Navigation Actions
+            Container(
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
-                border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outline)),
+                border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.5))),
               ),
               child: SafeArea(
                 top: false,
                 child: Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _prev,
-                        icon: const Icon(Icons.chevron_left),
-                        label: const Text('Previous'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
+                    // Mark for review toggle
+                    GFButton(
+                      onPressed: () {
+                        setState(() {
+                          if (_markedIndices.contains(_currentIndex)) {
+                            _markedIndices.remove(_currentIndex);
+                          } else {
+                            _markedIndices.add(_currentIndex);
+                          }
+                        });
+                      },
+                      text: _markedIndices.contains(_currentIndex) ? 'Marked' : 'Mark Review',
+                      icon: Icon(
+                        _markedIndices.contains(_currentIndex) ? Icons.bookmark : Icons.bookmark_border,
+                        color: Colors.white,
+                        size: 16,
                       ),
+                      color: _markedIndices.contains(_currentIndex) ? Colors.orange : Colors.grey,
+                      size: GFSize.MEDIUM,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: FilledButton(
-                        onPressed: _picked == null ? null : (_answered ? _next : _submit),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _answered ? AppTheme.primary : AppTheme.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (_currentIndex > 0) ...[
+                            GFButton(
+                              onPressed: () {
+                                _pageController.previousPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
+                              },
+                              text: 'Prev',
+                              color: GFColors.LIGHT,
+                              textStyle: const TextStyle(color: Colors.black87),
+                              size: GFSize.MEDIUM,
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          GFButton(
+                            onPressed: () {
+                              if (_currentIndex == _questions.length - 1) {
+                                _confirmSubmit();
+                              } else {
+                                _pageController.nextPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
+                              }
+                            },
+                            text: _currentIndex == _questions.length - 1 ? 'Submit' : 'Next',
+                            color: AppTheme.primary,
+                            size: GFSize.MEDIUM,
                           ),
-                        ),
-                        child: Text(
-                          _answered
-                              ? (_index == _questions.length - 1 ? 'Finish' : 'Next')
-                              : 'Submit',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
+                        ],
                       ),
                     ),
                   ],
@@ -476,135 +710,6 @@ class _ExamTakeScreenState extends State<ExamTakeScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildOption(BuildContext context, dynamic q, int i) {
-    final isPicked = _picked == i;
-    final isCorrect = q['answer'] == i;
-    Color borderColor = Theme.of(context).colorScheme.outline;
-    Color bg = Theme.of(context).colorScheme.surface;
-    Color textColor = Theme.of(context).colorScheme.onSurface;
-
-    if (_answered) {
-      if (isCorrect) {
-        borderColor = AppTheme.success;
-        bg = AppTheme.success.withOpacity(0.08);
-        textColor = AppTheme.success;
-      } else if (isPicked) {
-        borderColor = AppTheme.error;
-        bg = AppTheme.error.withOpacity(0.08);
-        textColor = AppTheme.error;
-      }
-    } else if (isPicked) {
-      borderColor = AppTheme.primary;
-      bg = AppTheme.primaryContainer;
-      textColor = AppTheme.primaryDark;
-    }
-
-    final letter = String.fromCharCode(65 + i);
-    return InkWell(
-      onTap: _answered ? null : () => setState(() => _picked = i),
-      borderRadius: BorderRadius.circular(16),
-      child: AnimatedContainer(
-        duration: AppTheme.normal,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: bg,
-          border: Border.all(color: borderColor, width: isPicked || (_answered && isCorrect) ? 2 : 1),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: _answered && isCorrect
-                    ? AppTheme.success
-                    : _answered && isPicked
-                        ? AppTheme.error
-                        : isPicked
-                            ? AppTheme.primary
-                            : Theme.of(context).colorScheme.surfaceVariant,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: _answered && isCorrect
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
-                  : _answered && isPicked
-                      ? const Icon(Icons.close, size: 16, color: Colors.white)
-                      : Text(
-                          letter,
-                          style: TextStyle(
-                            color: isPicked ? Colors.white : Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                q['options'][i] as String,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isPicked || (_answered && isCorrect) ? FontWeight.w700 : FontWeight.w500,
-                  color: textColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExplanation(dynamic q) {
-    final isCorrect = _picked == q['answer'];
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isCorrect
-            ? AppTheme.success.withOpacity(0.06)
-            : AppTheme.error.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isCorrect ? AppTheme.success : AppTheme.error,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                isCorrect ? Icons.check_circle : Icons.info_rounded,
-                color: isCorrect ? AppTheme.success : AppTheme.error,
-                size: 18,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                isCorrect ? 'Correct!' : 'Incorrect',
-                style: TextStyle(
-                  color: isCorrect ? AppTheme.success : AppTheme.error,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            q['explain'] as String,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 13,
-              height: 1.5,
-            ),
-          ),
-        ],
       ),
     );
   }

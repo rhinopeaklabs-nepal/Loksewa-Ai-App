@@ -1,27 +1,65 @@
-// Splash Screen — animated brand intro
+// Splash Screen — animated brand intro using GetWidget components
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router.dart';
 import '../../app/theme.dart';
+import '../../shared/providers/auth_provider.dart';
+import '../../shared/providers/data_providers.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    _controller.forward();
     _navigate();
   }
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _navigate() async {
+    // Keep splash visible for at least 2.2 seconds for branding
     await Future.delayed(const Duration(milliseconds: 2200));
+    if (!mounted) return;
+
+    try {
+      final signedIn = await ref.read(authRepositoryProvider).isSignedIn;
+      if (!mounted) return;
+
+      if (signedIn) {
+        // Run checkAuth to load user profile
+        await ref.read(authStateProvider.notifier).checkAuth();
+        if (!mounted) return;
+
+        final authState = ref.read(authStateProvider);
+        if (authState.status == AuthStatus.authenticated) {
+          context.go(AppRoutes.home);
+          return;
+        }
+      }
+    } catch (_) {
+      // Fallback on error
+    }
+
     if (mounted) {
       context.go(AppRoutes.welcome);
     }
@@ -35,58 +73,64 @@ class _SplashScreenState extends State<SplashScreen> {
         child: SafeArea(
           child: Stack(
             children: [
-              // Decorative blobs
+              // Decorative background circles
               Positioned(
                 top: -100,
                 right: -80,
-                child: _Blob(
-                  size: 280,
-                  color: Colors.white.withOpacity(0.06),
+                child: Container(
+                  width: 280,
+                  height: 280,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
               Positioned(
                 bottom: -120,
                 left: -100,
-                child: _Blob(
-                  size: 320,
-                  color: Colors.white.withOpacity(0.04),
+                child: Container(
+                  width: 320,
+                  height: 320,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.04),
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
               Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Logo
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(32),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
+                    // Logo using GetWidget GFAnimation
+                    GFAnimation(
+                      controller: _controller,
+                      type: GFAnimationType.scaleTransition,
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 30,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.auto_awesome,
+                            size: 64,
+                            color: AppTheme.primary,
                           ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.auto_awesome,
-                          size: 64,
-                          color: AppTheme.primary,
                         ),
                       ),
-                    )
-                        .animate()
-                        .scale(
-                          duration: 800.ms,
-                          curve: Curves.elasticOut,
-                        )
-                        .fadeIn(duration: 600.ms),
+                    ),
                     const SizedBox(height: 24),
-                    Text(
+                    const Text(
                       'Loksewa AI',
                       style: TextStyle(
                         fontSize: 36,
@@ -94,10 +138,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         color: Colors.white,
                         letterSpacing: -1,
                       ),
-                    )
-                        .animate(delay: 300.ms)
-                        .fadeIn(duration: 600.ms)
-                        .slideY(begin: 0.3, end: 0),
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       'Your AI-powered civil service coach',
@@ -106,22 +147,15 @@ class _SplashScreenState extends State<SplashScreen> {
                         color: Colors.white.withOpacity(0.85),
                         fontWeight: FontWeight.w500,
                       ),
-                    )
-                        .animate(delay: 600.ms)
-                        .fadeIn(duration: 600.ms),
+                    ),
                     const SizedBox(height: 48),
-                    SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white.withOpacity(0.85),
-                        ),
-                      ),
-                    )
-                        .animate(delay: 900.ms)
-                        .fadeIn(duration: 400.ms),
+                    // Loader using GetWidget GFLoader
+                    const GFLoader(
+                      type: GFLoaderType.circle,
+                      loaderColorOne: Colors.white,
+                      loaderColorTwo: Colors.white70,
+                      loaderColorThree: Colors.white54,
+                    ),
                   ],
                 ),
               ),
@@ -137,29 +171,11 @@ class _SplashScreenState extends State<SplashScreen> {
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
-                ).animate(delay: 1200.ms).fadeIn(duration: 600.ms),
+                ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Blob extends StatelessWidget {
-  final double size;
-  final Color color;
-  const _Blob({required this.size, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
       ),
     );
   }
